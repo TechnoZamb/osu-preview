@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="index.js" type="module" defer></script>
+    <style>
+        html, body {
+            user-select: none;
+        }
+        #progress-bar {
+            width: 800px;
+            height: 20px;
+            background-color: rgb(66, 66, 66);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .progress {
+            background-color: #dddd2c;
+            width: 50%;
+            height: 20px;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+    <title>Document</title>
+</head>
+<body>
+    <div id="progress-bar">
+        <div class="progress"></div>
+    </div>
+    <button id="play">play</button>
+    <button id="pause">pause</button>
+    <canvas></canvas>
+</body>
+</html>
