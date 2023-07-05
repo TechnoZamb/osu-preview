@@ -8,12 +8,11 @@ export class MusicPlayer {
     }
 
     static async init(file) {
-        var time = performance.now()
-        if (!(file instanceof Blob))
-            file = await fetch(file).then(r => r.blob());
-        
         MusicPlayer.#initializing = true;
         const player = new MusicPlayer();
+
+        if (!(file instanceof Blob))
+            file = await fetch(file).then(r => r.blob());        
         
         player.audioContext = new AudioContext();
         const buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
@@ -26,7 +25,6 @@ export class MusicPlayer {
         player.backwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(backwards), oncanplaythrough: callback2 });
         await Promise.all(promises);
         
-        console.log(performance.now() - time)
         player.duration = player.forwards.duration;
         player.playbackRate = 1;
         return player;

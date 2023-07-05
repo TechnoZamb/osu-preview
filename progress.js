@@ -26,6 +26,18 @@ export class ProgressBar {
                 this.targetValue = clamp(0, (e.clientX - this.progressBar.getBoundingClientRect().left) / this.progressBar.clientWidth, 1);
             }
         });
+        window.addEventListener("keydown", e => {
+            if (e.code == "Comma") {
+                this.player.currentTime -= 0.01;
+            }
+            else if (e.code == "Period") {
+                this.player.currentTime += 0.01;
+            }
+            else if (e.code == "Space") {
+                if (this.player.paused) this.player.play();
+                else this.player.pause();
+            }
+        });
 
         this.callback = callback;
         window.requestAnimationFrame(() => this.frame());
@@ -68,7 +80,7 @@ export class ProgressBar {
                 this.player.changePlayBackRate((actualValue - prevValue) * this.player.duration / (deltaT / 1000));
             this.player.currentTime = prevValue * this.player.duration;
         }
-        else if (!this.player.paused) {
+        else {
             actualValue = this.player.currentTime / this.player.duration;
         }
         
