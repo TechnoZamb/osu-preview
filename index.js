@@ -2,8 +2,8 @@ import { MusicPlayer } from "./player.js";
 import { ProgressBar } from "./progress.js";
 
 var player, progressBar;
-const canvas = document.querySelector("canvas");
-const ctx = canvas.getContext("2d");
+const canvas = document.querySelector("canvas"), bufferCanvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d"), bufferCtx = bufferCanvas.getContext("2d");
 
 const canvasSize = [1900, 1200];
 const minMargin = 50;
@@ -39,13 +39,9 @@ window.onload = async (e) => {
 
     const text = await fetch("../../b/MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [Mommy's Radiance].osu").then(r => r.text());
     beatmap = parseBeatmap(text);
-    radius = 54.4 - 4.48 * parseFloat(beatmap.Difficulty.CircleSize);
+    radius = 54.4 - 4.48 * parseFloat(beatmap.Difficulty.CircleSize);console.log(radius)
 
-    [bg] = await asyncLoadImages("b/leah miku.jpg");
-    /*circle = Object.assign(new Image(), {src : "b/hitcircle.png"});
-    overlay = new Image(); overlay.src = "b/hitcircleoverlay.png";
-    approach = new Image(); approach.src = "b/approachcircle.png";*/
-    //numbers = await asyncLoadImages(Array.from(Array(10).keys()).map(i => `b/default-${i}@2x.png`));
+    bg = await asyncLoadImages("b/leah miku.jpg");
     skin = await Skin.init("b/");
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
@@ -55,10 +51,12 @@ window.onload = async (e) => {
         bgSize = [bg.width * canvasSize[1] / bg.height, canvasSize[1]];
     }
     bgSize = [...bgSize, (canvasSize[1] - bgSize[1]) / 2, (canvasSize[0] - bgSize[0]) / 2];
+    bufferCanvas.width = radius / 256 * fieldSize[0];
+    bufferCanvas.height = radius / 192 * fieldSize[1];
 
     player = await MusicPlayer.init("b/audio.ogg");
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 41.083;
+    player.currentTime = 0//41.083;
 }
 
 function callback(time) {
@@ -68,7 +66,7 @@ function callback(time) {
     ctx.drawImage(bg, bgSize[3], bgSize[2], bgSize[0], bgSize[1]);
 
     // dim background
-    ctx.fillStyle = "#000000a0";
+    ctx.fillStyle = "#000000ff";
     ctx.fillRect(0, 0, canvasSize[0], canvasSize[1]);
 
     ctx.strokeStyle = "black";
@@ -101,15 +99,29 @@ function callback(time) {
         else {
             if (time <= obj[2]) {
                 approachQueue.push(obj);
+
+                bufferCtx.globalCompositeOperation = "source-over";
+                bufferCtx.fillStyle = "#000000ff";
+                bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+                bufferCtx.fillStyle = "#C6AD9F";
+
+                bufferCtx.globalCompositeOperation = "source-over";
+                bufferCtx.drawImage(skin["hitcircle"].img, 0, 0, bufferCanvas.width, bufferCanvas.height);
+                bufferCtx.globalCompositeOperation = "multiply";
+                bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+                //bufferCtx.globalCompositeOperation = "multiply";
+                //bufferCtx.drawImage(skin["hitcircle"].img, 0, 0, bufferCanvas.width, bufferCanvas.height);
+
                 ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
-                ctx.drawImage(skin["hitcircle"], osuToPixelsX(obj[0] - radius + 2), osuToPixelsY(obj[1] - radius + 2), (radius - 2) / 256 * fieldSize[0], (radius - 2) / 192 * fieldSize[1]);
-                ctx.drawImage(skin["hitcircleoverlay"], osuToPixelsX(obj[0] - radius), osuToPixelsY(obj[1] - radius), radius / 256 * fieldSize[0], radius / 192 * fieldSize[1]);
+                //ctx.drawImage(skin["hitcircle"].img, osuToPixelsX(obj[0] - radius + 0), osuToPixelsY(obj[1] - radius + 0), (radius - 0) / 256 * fieldSize[0], (radius - 0) / 192 * fieldSize[1]);
+                ctx.drawImage(bufferCanvas, osuToPixelsX(obj[0] - radius), osuToPixelsY(obj[1] - radius));
+                //ctx.drawImage(skin["hitcircleoverlay"].img, osuToPixelsX(obj[0] - radius), osuToPixelsY(obj[1] - radius), radius / 256 * fieldSize[0], radius / 192 * fieldSize[1]);
             }
             else {
                 ctx.globalAlpha = clamp(0, (obj[2] + fadeout - time) / fadeout, 1);
                 const circleScale = 1 + cubicBezier(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.25;
-                ctx.drawImage(skin["hitcircle"], osuToPixelsX(obj[0] + (2 - radius) * circleScale), osuToPixelsY(obj[1] + (2 - radius) * circleScale), (radius - 2) / 256 * fieldSize[0] * circleScale, (radius - 2) / 192 * fieldSize[1] * circleScale);
-                ctx.drawImage(skin["hitcircleoverlay"], osuToPixelsX(obj[0] - radius * circleScale), osuToPixelsY(obj[1] - radius * circleScale), radius / 256 * fieldSize[0] * circleScale, radius / 192 * fieldSize[1] * circleScale);
+                ctx.drawImage(skin["hitcircle"].img, osuToPixelsX(obj[0] + (0 - radius) * circleScale), osuToPixelsY(obj[1] + (0 - radius) * circleScale), (radius - 0) / 256 * fieldSize[0] * circleScale, (radius - 0) / 192 * fieldSize[1] * circleScale);
+                ctx.drawImage(skin["hitcircleoverlay"].img, osuToPixelsX(obj[0] - radius * circleScale), osuToPixelsY(obj[1] - radius * circleScale), radius / 256 * fieldSize[0] * circleScale, radius / 192 * fieldSize[1] * circleScale);
             }
         }
 
@@ -120,10 +132,10 @@ function callback(time) {
         for (let i = 0; i < combo.length; i++) {
             const letter = skin["default-" + combo[i]];
 
-            const numberScale = radius / 160 / 512 * fieldSize[0];
-            const width = letter.width * numberScale;
-            const height = letter.height * numberScale;
-            ctx.drawImage(letter, osuToPixelsX(obj[0]) - width * combo.length / 2 + hitcircleOverlap / 640 * fieldSize[0] * (combo.length - 1) + (width - hitcircleOverlap / 640 * fieldSize[0]) * i, osuToPixelsY(obj[1]) - height / 2, width, height);
+            const numberScale = radius / (letter.isHD ? 160 : 80) / 512 * fieldSize[0];
+            const width = letter.img.width * numberScale;
+            const height = letter.img.height * numberScale;
+            //ctx.drawImage(letter.img, osuToPixelsX(obj[0]) - width * combo.length / 2 + hitcircleOverlap / 640 * fieldSize[0] * (combo.length - 1) + (width - hitcircleOverlap / 640 * fieldSize[0]) * i, osuToPixelsY(obj[1]) - height / 2, width, height);
         }
 
         index--;
@@ -133,7 +145,7 @@ function callback(time) {
     for (let obj of approachQueue) {
         const approachScale = 1.1 + clamp(0, 1 - (time - (obj[2] - preempt)) / preempt, 1) * 3.2;
         ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.9) / 0.9 * 0.5;
-        ctx.drawImage(skin["approachcircle"], osuToPixelsX(obj[0] - radius * approachScale), osuToPixelsY(obj[1] - radius * approachScale), radius / 256 * fieldSize[0] * approachScale, radius / 192 * fieldSize[1] * approachScale);
+        //ctx.drawImage(skin["approachcircle"].img, osuToPixelsX(obj[0] - radius * approachScale), osuToPixelsY(obj[1] - radius * approachScale), radius / 256 * fieldSize[0] * approachScale, radius / 192 * fieldSize[1] * approachScale);
     }
 
 
@@ -226,14 +238,14 @@ const asyncLoadImages = async (files) => {
         }
 
         await Promise.allSettled(promises);
-        return [images, promises];
+        return images;
     }
     else {
         let success, error;
         const promise = new Promise((res, rej) => { success = res; error = rej });
         const image = Object.assign(new Image(), { src: files, onload: success, onerror: error });
         await Promise.allSettled([promise]);
-        return [image, promise];
+        return image;
     }
 }
 
@@ -259,6 +271,9 @@ class Skin {
         Skin.#initializing = true;
         const skin = new Skin();
 
+        // first, try and load in HD elements; if those fail, load in SD elements;
+        // if those fail, load in hd default skin HD elements; if those fail, load in default skin SD elements;
+        // if those fail, end the program
         var imgBaseNames = [], imgsURLs = [];
         for (let file of skin.requiredFiles) {
             if (file.endsWith("-")) {
@@ -274,18 +289,21 @@ class Skin {
         }
         var stages = Array(imgBaseNames.length).fill(3);
 
-        var [imgs, promises] = await asyncLoadImages(imgsURLs);
+        const imgs = (await asyncLoadImages(imgsURLs)).map(o => ({ img: o, isHD: true }));
+
         var completed = 0;
-        while (completed < promises.length) {
-            try {
-                await promises[completed];
+        while (completed < imgs.length) {
+            // if img loaded correctly
+            if (imgs[completed].img.complete && imgs[completed].img.naturalWidth !== 0) {
                 completed++;
             }
-            catch {
+            else {
                 switch (--stages[completed]) {
+                    // SD skin elements
                     case 2:
-                        [imgs[completed], promises[completed]] = await asyncLoadImages(folder + imgBaseNames[completed] + ".png");
+                        imgs[completed] = { img: await asyncLoadImages(folder + imgBaseNames[completed] + ".png"), isHD: false };
                         break;
+                    // TODO
                     default:
                         throw new Error();
                 }
@@ -294,6 +312,7 @@ class Skin {
 
         for (let i = 0; i < imgs.length; i++) {
             skin[imgBaseNames[i]] = imgs[i];
+            //document.querySelector("body").appendChild(imgs[i].img)
         }
         return skin;
     }
