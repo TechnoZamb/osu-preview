@@ -107,6 +107,7 @@ function callback(time) {
         if (time > obj[2]) {
             ctx.globalAlpha = clamp(0, (obj[2] + 50 - time) / 50, 1);
         }
+        
         for (let i = 0; i < combo.length; i++) {
             const letter = skin["default-" + combo[i]];
 
