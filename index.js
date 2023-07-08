@@ -1,19 +1,24 @@
 import { MusicPlayer } from "./player.js";
 import { ProgressBar } from "./progress.js";
+import { parseSkin, asyncLoadImages } from "./skin.js";
+import urlJoin from "./url-join.js";
+
 
 var player, progressBar;
-const canvas = document.querySelector("canvas"), bufferCanvas = document.createElement("canvas");
-const ctx = canvas.getContext("2d"), bufferCtx = bufferCanvas.getContext("2d");
+const canvas = document.querySelector("canvas");
+const ctx = canvas.getContext("2d");
 
-const canvasSize = [1900, 1200];
+const canvasSize = [1600, 1200];
 const minMargin = 50;
 var fieldSize = [], margins, bgSize;
 var beatmap, skin;
-var bg, circle, overlay, approach, numbers = [];
+var bg;
 var preempt = 550, fadein = 380, fadeout = 233;
 var radius;
 var editor = false;
 const hitcircleOverlap = 15;
+
+var tinted;
 
 var osuToPixelsX, osuToPixelsY;
 
@@ -33,16 +38,15 @@ window.onload = async (e) => {
         fieldSize[1] = fieldSize[0] / 512 * 384;
         margins = [minMargin, (canvasSize[1] - fieldSize[1]) / 2];
     }
-    osuToPixelsX = (val) => val / 512 * fieldSize[0] + margins[0];
-    osuToPixelsY = (val) => val / 384 * fieldSize[1] + margins[1];
-    ctx.font = "48px serif";
+    osuToPixelsX = (val) => val / 512 * fieldSize[0];
+    osuToPixelsY = (val) => val / 384 * fieldSize[1];
 
     const text = await fetch("../../b/MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [Mommy's Radiance].osu").then(r => r.text());
     beatmap = parseBeatmap(text);
-    radius = 54.4 - 4.48 * parseFloat(beatmap.Difficulty.CircleSize);console.log(radius)
+    radius = 54.4 - 4.48 * parseFloat(beatmap.Difficulty.CircleSize);
 
     bg = await asyncLoadImages("b/leah miku.jpg");
-    skin = await Skin.init("b/");
+    skin = await parseSkin("skins/- YUGEN -");
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
         bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
@@ -51,12 +55,10 @@ window.onload = async (e) => {
         bgSize = [bg.width * canvasSize[1] / bg.height, canvasSize[1]];
     }
     bgSize = [...bgSize, (canvasSize[1] - bgSize[1]) / 2, (canvasSize[0] - bgSize[0]) / 2];
-    bufferCanvas.width = radius / 256 * fieldSize[0];
-    bufferCanvas.height = radius / 192 * fieldSize[1];
 
-    player = await MusicPlayer.init("b/audio.ogg");
+    player = window.player = await MusicPlayer.init("b/audio.ogg");
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 0//41.083;
+    player.currentTime = 0.015//41.083;
 }
 
 function callback(time) {
@@ -81,51 +83,27 @@ function callback(time) {
     while (index >= 0 && beatmap.HitObjects[index][2] + fadeout > time) {
         const obj = beatmap.HitObjects[index];
 
-        if (editor) {
-            var approachScale;
-            if (time <= obj[2]) {
-                ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
-                approachScale = 1.1 + clamp(0, 1 - (time - (obj[2] - preempt)) / preempt, 1) * 3;            
-            }
-            else {
-                ctx.globalAlpha = clamp(0, (obj[2] + fadeout - time) / fadeout, 1);
-                approachScale = 1.1 + clamp(0, 1 - (obj[2] + 100 - time) / 100, 1) * 0.1;
-            }
+        const hitcircle = skin["hitcircle"];
+        const tinted = hitcircle.combos[obj[obj.length - 1][1] % skin.comboColors.length];
+        const overlay = skin["hitcircleoverlay"];
+        var circleScale;
 
-            ctx.drawImage(circle, osuToPixelsX(obj[0] - radius + 2), osuToPixelsY(obj[1] - radius + 2), (radius - 2) / 256 * fieldSize[0], (radius - 2) / 192 * fieldSize[1]);
-            ctx.drawImage(overlay, osuToPixelsX(obj[0] - radius), osuToPixelsY(obj[1] - radius), radius / 256 * fieldSize[0], radius / 192 * fieldSize[1]);
-            ctx.drawImage(approach, osuToPixelsX(obj[0] - radius * approachScale), osuToPixelsY(obj[1] - radius * approachScale), radius / 256 * fieldSize[0] * approachScale, radius / 192 * fieldSize[1] * approachScale);
+        if (time <= obj[2]) {
+            approachQueue.push(obj);
+            ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
+            circleScale = 1;
         }
         else {
-            if (time <= obj[2]) {
-                approachQueue.push(obj);
-
-                bufferCtx.globalCompositeOperation = "source-over";
-                bufferCtx.fillStyle = "#000000ff";
-                bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-                bufferCtx.fillStyle = "#C6AD9F";
-
-                bufferCtx.globalCompositeOperation = "source-over";
-                bufferCtx.drawImage(skin["hitcircle"].img, 0, 0, bufferCanvas.width, bufferCanvas.height);
-                bufferCtx.globalCompositeOperation = "multiply";
-                bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-                //bufferCtx.globalCompositeOperation = "multiply";
-                //bufferCtx.drawImage(skin["hitcircle"].img, 0, 0, bufferCanvas.width, bufferCanvas.height);
-
-                ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
-                //ctx.drawImage(skin["hitcircle"].img, osuToPixelsX(obj[0] - radius + 0), osuToPixelsY(obj[1] - radius + 0), (radius - 0) / 256 * fieldSize[0], (radius - 0) / 192 * fieldSize[1]);
-                ctx.drawImage(bufferCanvas, osuToPixelsX(obj[0] - radius), osuToPixelsY(obj[1] - radius));
-                //ctx.drawImage(skin["hitcircleoverlay"].img, osuToPixelsX(obj[0] - radius), osuToPixelsY(obj[1] - radius), radius / 256 * fieldSize[0], radius / 192 * fieldSize[1]);
-            }
-            else {
-                ctx.globalAlpha = clamp(0, (obj[2] + fadeout - time) / fadeout, 1);
-                const circleScale = 1 + cubicBezier(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.25;
-                ctx.drawImage(skin["hitcircle"].img, osuToPixelsX(obj[0] + (0 - radius) * circleScale), osuToPixelsY(obj[1] + (0 - radius) * circleScale), (radius - 0) / 256 * fieldSize[0] * circleScale, (radius - 0) / 192 * fieldSize[1] * circleScale);
-                ctx.drawImage(skin["hitcircleoverlay"].img, osuToPixelsX(obj[0] - radius * circleScale), osuToPixelsY(obj[1] - radius * circleScale), radius / 256 * fieldSize[0] * circleScale, radius / 192 * fieldSize[1] * circleScale);
-            }
+            ctx.globalAlpha = clamp(0, (obj[2] + fadeout - time) / fadeout, 1);
+            circleScale = 1 + cubicBezier(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.25;
         }
 
-        const combo = obj[obj.length - 1].toString();
+        var size = [osuToPixelsX(radius) * 2 / (hitcircle.isHD ? 256 : 128) * tinted.width * circleScale, osuToPixelsY(radius) * 2 / (hitcircle.isHD ? 256 : 128) * tinted.height * circleScale];
+        ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+        size = [osuToPixelsX(radius) * 2 / (overlay.isHD ? 256 : 128) * overlay.img.width * circleScale, osuToPixelsY(radius) * 2 / (overlay.isHD ? 256 : 128) * overlay.img.height * circleScale];
+        ctx.drawImage(overlay.img, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+
+        const combo = obj[obj.length - 1][0].toString();
         if (time > obj[2]) {
             ctx.globalAlpha = clamp(0, (obj[2] + 50 - time) / 50, 1);
         }
@@ -135,7 +113,7 @@ function callback(time) {
             const numberScale = radius / (letter.isHD ? 160 : 80) / 512 * fieldSize[0];
             const width = letter.img.width * numberScale;
             const height = letter.img.height * numberScale;
-            //ctx.drawImage(letter.img, osuToPixelsX(obj[0]) - width * combo.length / 2 + hitcircleOverlap / 640 * fieldSize[0] * (combo.length - 1) + (width - hitcircleOverlap / 640 * fieldSize[0]) * i, osuToPixelsY(obj[1]) - height / 2, width, height);
+            ctx.drawImage(letter.img, osuToPixelsX(obj[0]) + margins[0] - width * combo.length / 2 + hitcircleOverlap / 640 * fieldSize[0] * (combo.length - 1) + (width - hitcircleOverlap / 640 * fieldSize[0]) * i, osuToPixelsY(obj[1]) + margins[1] - height / 2, width, height);
         }
 
         index--;
@@ -143,11 +121,14 @@ function callback(time) {
 
     // draw approach circles on top of hitcircles
     for (let obj of approachQueue) {
-        const approachScale = 1.1 + clamp(0, 1 - (time - (obj[2] - preempt)) / preempt, 1) * 3.2;
+        const approachScale = 1 + clamp(0, 1 - (time - (obj[2] - preempt)) / preempt, 1) * 3;
         ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.9) / 0.9 * 0.5;
-        //ctx.drawImage(skin["approachcircle"].img, osuToPixelsX(obj[0] - radius * approachScale), osuToPixelsY(obj[1] - radius * approachScale), radius / 256 * fieldSize[0] * approachScale, radius / 192 * fieldSize[1] * approachScale);
-    }
+        
+        // get tinted approachcircle
+        const tinted = skin["approachcircle"].combos[obj[obj.length - 1][1] % skin.comboColors.length];
 
+        ctx.drawImage(tinted, osuToPixelsX(obj[0] - radius * approachScale) + margins[0], osuToPixelsY(obj[1] - radius * approachScale) + margins[1], radius / 256 * fieldSize[0] * approachScale, radius / 192 * fieldSize[1] * approachScale);
+    }
 
     ctx.globalAlpha = 1;
 }
@@ -186,11 +167,13 @@ const parseBeatmap = (text) => {
     }
 
     // pre compute combos
-    var currentCombo = 1;
+    var currentCombo = 1, comboIndex = -1;
     for (let obj of result.HitObjects) {
-        if (obj[3] & 4)
+        if (obj[3] & 4) { // new combo
             currentCombo = 1;
-        obj.push(currentCombo);
+            comboIndex += 1 + (((16 & obj[3]) + (32 & obj[3]) + (64 & obj[3])) >> 4);
+        }
+        obj.push([currentCombo, comboIndex]);
         currentCombo++;
     }
 
@@ -228,92 +211,5 @@ const cubicBezier = (t) => {
     return 1.5 * t / (0.5 + Math.abs(t));
 }
 
-const asyncLoadImages = async (files) => {
-    if (files instanceof Array) {
-        const successes = [], errors = [], promises = [], images = [];
-
-        for (let i = 0; i < files.length; i++) {
-            promises[i] = new Promise((res, rej) => { successes[i] = res; errors[i] = rej });
-            images[i] = Object.assign(new Image(), { src: files[i], onload: successes[i], onerror: errors[i] });
-        }
-
-        await Promise.allSettled(promises);
-        return images;
-    }
-    else {
-        let success, error;
-        const promise = new Promise((res, rej) => { success = res; error = rej });
-        const image = Object.assign(new Image(), { src: files, onload: success, onerror: error });
-        await Promise.allSettled([promise]);
-        return image;
-    }
-}
-
 
 const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
-
-class Skin {
-    static #initializing = false;
-
-    static DEFAULT_SKIN_PATH = "default/";
-
-    requiredFiles = [
-        "approachcircle", "hitcircle", "hitcircleoverlay", "default-"
-    ]
-
-    constructor() {
-        if (!Skin.#initializing)
-            throw new TypeError("Use Skin.init()");
-        Skin.#initializing = false;
-    }
-
-    static async init(folder) {
-        Skin.#initializing = true;
-        const skin = new Skin();
-
-        // first, try and load in HD elements; if those fail, load in SD elements;
-        // if those fail, load in hd default skin HD elements; if those fail, load in default skin SD elements;
-        // if those fail, end the program
-        var imgBaseNames = [], imgsURLs = [];
-        for (let file of skin.requiredFiles) {
-            if (file.endsWith("-")) {
-                for (let i = 0; i < 10; i++) {
-                    imgBaseNames.push(file + i);
-                    imgsURLs.push(folder + file + i + "@2x.png");
-                }
-            }
-            else {
-                imgBaseNames.push(file);
-                imgsURLs.push(folder + file + "@2x.png");
-            }
-        }
-        var stages = Array(imgBaseNames.length).fill(3);
-
-        const imgs = (await asyncLoadImages(imgsURLs)).map(o => ({ img: o, isHD: true }));
-
-        var completed = 0;
-        while (completed < imgs.length) {
-            // if img loaded correctly
-            if (imgs[completed].img.complete && imgs[completed].img.naturalWidth !== 0) {
-                completed++;
-            }
-            else {
-                switch (--stages[completed]) {
-                    // SD skin elements
-                    case 2:
-                        imgs[completed] = { img: await asyncLoadImages(folder + imgBaseNames[completed] + ".png"), isHD: false };
-                        break;
-                    // TODO
-                    default:
-                        throw new Error();
-                }
-            }
-        }
-
-        for (let i = 0; i < imgs.length; i++) {
-            skin[imgBaseNames[i]] = imgs[i];
-            //document.querySelector("body").appendChild(imgs[i].img)
-        }
-        return skin;
-    }
-}
