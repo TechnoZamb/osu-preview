@@ -28,10 +28,10 @@ export class ProgressBar {
         });
         window.addEventListener("keydown", e => {
             if (e.code == "Comma") {
-                this.player.currentTime -= 0.01;
+                this.player.currentTime -= 0.00833;
             }
             else if (e.code == "Period") {
-                this.player.currentTime += 0.01;
+                this.player.currentTime += 0.00833;
             }
             else if (e.code == "Space") {
                 if (this.player.paused) this.player.play();

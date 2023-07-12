@@ -120,7 +120,7 @@ export async function parseSkin(path) {
             result[imgBaseNames[i]] = imgs[i];
         }
     }
-    result.comboColors = ini.combos;
+    result.ini = ini;
     return result;
 }
 
