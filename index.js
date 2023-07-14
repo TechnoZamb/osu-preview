@@ -144,14 +144,21 @@ function callback(time) {
         ctx.strokeRect(margins[0], margins[1], fieldSize[0], fieldSize[1]);
     }
 
-    // find first object to paint
+    // find first (last in hitobjects list) object to paint
     time *= 1000;
-    var index = binarySearch(beatmap.HitObjects, time + preempt);
+    //var index = binarySearch(beatmap.HitObjects, time + preempt);
+    var index = beatmap.HitObjects.length - 1;
 
     var approachQueue = [];
     
-    while (index >= 0 && beatmap.HitObjects[index][2] + fadeout > time) {
+    while (index >= 0) {
         const obj = beatmap.HitObjects[index];
+
+        if (obj[2] + (obj[3] & 2 ? obj.at(-2) : 0) + fadeout < time ||
+            obj[2] - preempt > time) {
+            index--;
+            continue;
+        }
 
         if (obj[3] & 2) {      // slider
 
@@ -166,7 +173,7 @@ function callback(time) {
                 snake = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.5) * 2;
             }
             else {
-                ctx.globalAlpha = 1;
+                ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) + fadeout - time) / fadeout, 1);
                 snake = 1;
             }
 
@@ -338,7 +345,7 @@ function callback(time) {
             
             ctx.drawImage(bufferCanvas, 0, 0);
         }
-        if (obj[3] & 1 || obj[3] & 2) {
+        if (obj[3] & 1 || obj[3] & 2) {    // hitcircle
 
             const hitcircle = skin["hitcircle"];
             const tinted = hitcircle.combos[obj[obj.length - 1][1] % skin.ini.combos.length];
@@ -402,6 +409,13 @@ function callback(time) {
     }
 }
 
+const isToBeRendered = (obj, time) => {
+    if (obj[3] & 2)
+        return 1
+    else
+        return obj[2] + fadeout > time;
+}
+
 const bezierPoints = (points, start = 0, end = 1) => {
     const arr = [], lengths = [0];
 
@@ -463,8 +477,9 @@ const determinant = (m) => {
 const parseBeatmap = (text) => {
     var result = {};
     var currCategory, matches;
+    const lines = text.split("\n");
 
-    for (let line of text.split("\n")) {
+    for (let line of lines) {
         if (!line.trim() || line.startsWith("//") || line.match(/^osu file format v/)) {
             continue;
         }
@@ -479,39 +494,84 @@ const parseBeatmap = (text) => {
         else if (!currCategory) {
             return null;
         }
-        else if (currCategory == "HitObjects") {
-            var vals = line.trim().split(",");
-            for (let i = 0; i < 5; i++) {
-                vals[i] = parseInt(vals[i]);
-            }
-            if (vals[3] & 2) {
-                vals[5] = vals[5].split("|");
-                for (let i = 1; i < vals[5].length; i++) {
-                    vals[5][i] = vals[5][i].split(":").map(x => parseInt(x));
+        else switch (currCategory) {
+            case "HitObjects": {
+                var vals = line.trim().split(",");
+                for (let i = 0; i < 5; i++) {
+                    vals[i] = parseInt(vals[i]);
                 }
-                vals[6] = parseInt(vals[6]);
-                vals[7] = parseInt(vals[7]);
+                if (vals[3] & 2) {
+                    vals[5] = vals[5].split("|");
+                    for (let i = 1; i < vals[5].length; i++) {
+                        vals[5][i] = vals[5][i].split(":").map(x => parseInt(x));
+                    }
+                    vals[6] = parseInt(vals[6]);
+                    vals[7] = parseInt(vals[7]);
+                }
+                result[currCategory].push(vals);
+                break;
             }
-            result[currCategory].push(vals);
-        }
-        else if (["TimingPoints", "Events"].includes(currCategory)) {
-            result[currCategory].push(line.trim().split(","));
-        }
-        else {
-            var keyval = line.trim().split(":");
-            result[currCategory][keyval[0].trim()] = keyval[1].trim();
+            case "TimingPoints": {
+                var vals = line.trim().split(",");
+                for (let i of [0, 2, 3, 4, 5, 6, 7]) {
+                    vals[i] = parseInt(vals[i]);
+                }
+                vals[1] = parseFloat(vals[1]);
+                result[currCategory].push(vals);
+                break;
+            }
+            case "Events": {
+                break;
+            }
+            default: {
+                var keyval = line.trim().split(":");
+                result[currCategory][keyval[0].trim()] = keyval[1].trim();
+            }
         }
     }
 
-    // pre compute combos
+    // pre compute combos and slider durations
     var currentCombo = 1, comboIndex = -1;
-    for (let obj of result.HitObjects) {
-        if (obj[3] & 4) { // new combo
+    var inheritedTPIndex = -1, uninheritedTPIndex = 0, tpIndex = 0;
+    const sliders = [];
+    var first = true;
+
+    for (let i = 0; i < result.HitObjects.length; i++) {
+        const obj = result.HitObjects[i];
+
+        if (first || obj[3] & 4) { // new combo
             currentCombo = 1;
             comboIndex += 1 + (((16 & obj[3]) + (32 & obj[3]) + (64 & obj[3])) >> 4);
         }
+        if (obj[3] & 2) { // slider
+            // find corresponding timing points
+            while (tpIndex < result.TimingPoints.length && result.TimingPoints[tpIndex][0] <= obj[2]) {
+                if (result.TimingPoints[tpIndex][6]) {
+                    uninheritedTPIndex = tpIndex;
+                    inheritedTPIndex = -1;
+                }
+                else {
+                    inheritedTPIndex = tpIndex;
+                }
+                tpIndex++;
+            }
+
+            obj.push(obj[7] / (result.Difficulty.SliderMultiplier * 100 * (inheritedTPIndex == -1 ? 1 : -100 / result.TimingPoints[inheritedTPIndex][1])) * result.TimingPoints[uninheritedTPIndex][1]);
+            result.HitObjects.splice(i, 1);
+            sliders.push(obj);
+            i--;
+        }
         obj.push([currentCombo, comboIndex]);
         currentCombo++;
+        first = false;
+    }
+
+    sliders.sort((a, b) => (a[2] + a.at(-2)) - (b[2] + b.at(-2)));
+    for (let slider of sliders) {
+        let i = result.HitObjects.length - 1;
+        while (i >= 0 && slider[2] + slider.at(-2) < result.HitObjects[i][2])
+            i--;
+        result.HitObjects.splice(i + 1, 0, slider);
     }
 
     return result;
