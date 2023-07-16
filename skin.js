@@ -2,17 +2,24 @@ import urlJoin from "./url-join.js";
 
 const DEFAULT_SKIN_PATH = "defaultskin/";
 
-const requiredFiles = [
-    "approachcircle", "hitcircle", "hitcircleoverlay", "default-"
-];
-const tinted = [
-    "approachcircle", "hitcircle", "sliderb"
-];
+const requiredFiles = {
+    "approachcircle": { tinted: true },
+    "hitcircle": { tinted: true },
+    "hitcircleoverlay": { tinted: false },
+    "sliderb" : { tinted: true, enumerable: -1 },
+    "default-": { tinted: false, enumerable: 9 }
+};
+const defaultValues = {            // for skin.ini
+    Colours: {
+        SliderBorder: "255,255,255",
+        SliderTrackOverride: false
+    }
+};
 
-export async function parseSkin(path) {
+export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSkin) {
     // load in both skin.ini and default skin.ini
     var defaultIni = await fetch(urlJoin(DEFAULT_SKIN_PATH, "skin.ini"));
-    var ini = await fetch(urlJoin(path, "skin.ini"));
+    var ini = await fetch(urlJoin(skinPath, "skin.ini"));
     if (!ini.ok) {
         if (!defaultIni.ok) {
             throw new Error();
@@ -69,58 +76,144 @@ export async function parseSkin(path) {
         catch (e) { throw e; }
     }
 
-    // first, try and load in HD elements; if those fail, load in SD elements;
-    // if those fail, load in hd default skin HD elements; if those fail, load in default skin SD elements;
-    // if those fail, end the program
-    var imgBaseNames = [], imgsURLs = [];
-    for (let file of requiredFiles) {
-        if (file.endsWith("-")) {
-            for (let i = 0; i < 10; i++) {
-                imgBaseNames.push(file + i);
-                imgsURLs.push(urlJoin(path, file + i + "@2x.png"));
+    // try parse map colors
+    if (loadBeatmapSkin && beatmapObj) {
+        const tempColors = [];
+        for (let i = 1; i < 9; i++) {
+            if (beatmapObj.Colours["Combo" + i])
+                tempColors.push(rgb(beatmapObj.Colours["Combo" + i]));
+        }
+
+        if (tempColors.length > 0) {
+            ini.combos = [...tempColors.slice(1), tempColors[0]];
+        }
+    }
+
+    // other required skin.ini entries
+    for (let cat in defaultValues) {
+        for (let [key, val] of Object.entries(defaultValues[cat])) {
+            if (ini[cat][key] === undefined)
+                ini[cat][key] = val;
+        }
+    }
+
+    // stages:
+    //      5: beatmap sd
+    //      4: skin hd
+    //      3: skin sd
+    //      2: default hd
+    //      1: default sd
+    //      0: fail
+
+    const imgBaseNames = [], imgsURLs = [], stages = [];
+    const imgs2 = [];
+
+    for (let [key, val] of Object.entries(requiredFiles)) {
+        if (val.enumerable) {
+            for (let i = 0; i <= (val.enumerable == -1 ? 0 : val.enumerable); i++) {
+                if (loadBeatmapSkin) {
+                    imgsURLs.push(urlJoin(beatmapPath, key + i + ".png"));
+                    stages.push(5);
+                    imgs2.push({
+                        url: urlJoin(beatmapPath, key + i + ".png"), stage: 5, isHD: false, baseName: key + i, baseBaseName: key
+                    });
+                }
+                else {
+                    imgsURLs.push(urlJoin(skinPath, key + i + "@2x.png"));
+                    stages.push(4);
+                    imgs2.push({
+                        url: urlJoin(skinPath, key + i + "@2x.png"), stage: 4, isHD: true, baseName: key + i, baseBaseName: key
+                    });
+                }
+                imgBaseNames.push(key + i);
             }
         }
         else {
-            imgBaseNames.push(file);
-            imgsURLs.push(urlJoin(path, file + "@2x.png"));
+            if (loadBeatmapSkin) {
+                imgsURLs.push(urlJoin(beatmapPath, key + ".png"));
+                stages.push(5);
+                imgs2.push({
+                    url: urlJoin(beatmapPath, key + ".png"), stage: 5, isHD: false, baseName: key, baseBaseName: key
+                });
+            }
+            else {
+                imgsURLs.push(urlJoin(skinPath, key + "@2x.png"));
+                stages.push(4);
+                imgs2.push({
+                    url: urlJoin(skinPath, key + "@2x.png"), stage: 4, isHD: true, baseName: key, baseBaseName: key
+                });
+            }
+            imgBaseNames.push(key);
         }
     }
-    var stages = Array(imgBaseNames.length).fill(3);
 
-    const imgs = (await asyncLoadImages(imgsURLs)).map(o => ({ img: o, isHD: true }));
+    (await asyncLoadImages(imgs2.map(o => o.url))).map((o, i) => imgs2[i].img = o);
 
     var completed = 0;
-    while (completed < imgs.length) {
+    while (completed < imgs2.length) {
+        const obj = imgs2[completed];
+
         // if img loaded correctly
-        if (imgs[completed].img.complete && imgs[completed].img.naturalWidth !== 0) {
+        if (obj.img.complete && obj.img.naturalWidth !== 0) {
             completed++;
         }
         else {
-            switch (--stages[completed]) {
-                // SD skin elements
-                case 2:
-                    imgs[completed] = { img: await asyncLoadImages(urlJoin(path, imgBaseNames[completed] + ".png")), isHD: false };
+            switch (--obj.stage) {
+                case 5: {
+                    obj.url = urlJoin(beatmapPath, obj.baseName + ".png");
+                    obj.isHD = false;
                     break;
-                // TODO
-                default:
+                }
+                case 4: {
+                    obj.url = urlJoin(skinPath, obj.baseName + "@2x.png");
+                    obj.isHD = true;
+                    break;
+                }
+                case 3: {
+                    obj.url = urlJoin(skinPath, obj.baseName + ".png");
+                    obj.isHD = false;
+                    break;
+                }
+                case 2: {
+                    obj.url = urlJoin(DEFAULT_SKIN_PATH, obj.baseName + "@2x.png");
+                    obj.isHD = true;
+                    break;
+                }
+                case 1: {
+                    obj.url = urlJoin(DEFAULT_SKIN_PATH, obj.baseName + ".png");
+                    obj.isHD = false;
+                    break;
+                }
+                default: {
                     throw new Error();
+                }
             }
+
+            obj.img = await asyncLoadImages(obj.url);
         }
     }
 
-    var result = {};
-    for (let i = 0; i < imgs.length; i++) {
-        if (tinted.includes(imgBaseNames[i])) {
-            result[imgBaseNames[i]] = { combos: [], isHD: imgs[i].isHD };
+    // loading complete
+
+    var result = { ini: ini };
+
+    for (let obj of imgs2) {
+        if (obj.isHD) {
+            obj.img.width /= 2;
+            obj.img.height /= 2;
+        }
+
+        if (requiredFiles[obj.baseBaseName].tinted) {
+            result[obj.baseName] = [];
             for (let combo of ini.combos) {
-                result[imgBaseNames[i]].combos.push(tintImage(imgs[i].img, combo));
+                result[obj.baseName].push(tintImage(obj.img, combo));
             }
         }
         else {
-            result[imgBaseNames[i]] = imgs[i];
+            result[obj.baseName] = obj.img;
         }
     }
-    result.ini = ini;
+
     return result;
 }
 

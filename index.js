@@ -5,6 +5,7 @@ import urlJoin from "./url-join.js";
 
 const mapFolder = 0 ? "songs/1712395 Ashrount - AureoLe ~for Triumph~/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
 const diff = 0 ? "Ashrount - AureoLe ~for Triumph~ (R3m) [FINAL].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [ssadasdsa].osu";
+const skinName = 0 ? "- YUGEN -" : "_Kynan-2017-08-10";
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 var bezierSegmentMaxLengthSqrd;             // in osu pixels, squared
@@ -79,7 +80,7 @@ window.onload = async (e) => {
     }
 
     bg = await asyncLoadImages("b/leah miku.jpg");
-    skin = await parseSkin("skins/- YUGEN -");
+    skin = await parseSkin("skins/" + skinName);
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
         bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
@@ -94,7 +95,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 0.495//41.083;
+    player.currentTime = 2.205//41.083;
 }
 
 function callback(time) {
@@ -149,7 +150,7 @@ function callback(time) {
     //var index = binarySearch(beatmap.HitObjects, time + preempt);
     var index = beatmap.HitObjects.length - 1;
 
-    var approachQueue = [];
+    var approachQueue = [], followQueue = [];
     
     while (index >= 0) {
         const obj = beatmap.HitObjects[index];
@@ -161,160 +162,26 @@ function callback(time) {
         }
 
         if (obj[3] & 2) {      // slider
-
-            var snake;
             bufferCtx.globalCompositeOperation = "source-over";
             bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.beginPath();
-
+            
+            var snake;
             if (time <= obj[2]) {
                 approachQueue.push(obj);
                 ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
                 snake = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.5) * 2;
             }
             else {
+                if (time < obj[2] + obj.at(-2)) {
+                    followQueue.push(obj);
+                }
                 ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) + fadeout - time) / fadeout, 1);
                 snake = 1;
             }
 
             bufferCtx.moveTo(osuToPixelsX(obj[0]) + margins[0], osuToPixelsY(obj[1]) + margins[1]);
-            
-            // linear
-            if (obj[5][0] == "L") {
-                const desiredlength = obj[7] * snake;
-                var actualLength = 0, prevLength = 0;
-                var prevObj = obj;
-
-                for (let i = 1; i < obj[5].length; i++) {
-                    const point = obj[5][i];
-                    actualLength += Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
-
-                    if (actualLength > desiredlength) {
-                        const ratio = (desiredlength - prevLength) / (actualLength - prevLength);
-                        bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
-                        break;
-                    }
-                    else {
-                        bufferCtx.lineTo(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
-                    }
-
-                    prevObj = point;
-                    prevLength = actualLength;
-                }
-
-                if (actualLength < desiredlength) {
-                    const point = obj[5].at(-1);
-                    prevObj = obj[5].at(-2) ?? obj;
-
-                    prevLength = actualLength - Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
-                    const ratio = (desiredlength - prevLength) / (actualLength - prevLength);
-                    bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
-                }
-            }
-            // perfect circle
-            else if (obj[5][0] == "P" && obj[5].length == 3) {
-                // https://stackoverflow.com/a/22793494/8414010
-                const a = [obj[0], obj[1]];
-                const b = [obj[5][1][0], obj[5][1][1]];
-                const c = [obj[5][2][0], obj[5][2][1]];
-                const x1 = 2 * (a[0] - b[0]);
-                const y1 = 2 * (a[1] - b[1]);
-                const z1 = a[0] * a[0] + a[1] * a[1] - b[0] * b[0] - b[1] * b[1];
-                const x2 = 2 * (a[0] - c[0]);
-                const y2 = 2 * (a[1] - c[1]);
-                const z2 = a[0] * a[0] + a[1] * a[1] - c[0] * c[0] - c[1] * c[1];
-
-                const y = (z2 - (x2 * z1) / x1) / (y2 - (x2 * y1) / x1);
-                const x = (z1 - y1 * y) / x1;
-
-                const radius = Math.sqrt((a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y));
-                const anglea = Math.atan2(a[1] - y, a[0] - x);
-                var anglec = Math.atan2(c[1] - y, c[0] - x);
-                const det = determinant([[a[0], a[1], 1], [b[0], b[1], 1], [c[0], c[1], 1]]);
-
-                const arclength = radius * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
-                const desiredlength = obj[7] * snake;
-                var xincr = null, yincr = null;
-                if (arclength > desiredlength) {
-                    anglec = anglea + desiredlength / radius * (det > 0 ? 1 : -1);
-                }
-                else {
-                    const slope = 1 / Math.tan(anglec);
-                    xincr = Math.sqrt(Math.pow(desiredlength - arclength, 2) / (1 + slope * slope)) * (anglec < 0 ? -1 : 1);
-                    yincr = xincr * slope * (anglec < Math.PI ? -1 : 1);
-                }
-
-                bufferCtx.arc(osuToPixelsX(x) + margins[0], osuToPixelsY(y) + margins[1], osuToPixelsX(radius), anglea, anglec, det < 0);
-                if (xincr)
-                    bufferCtx.lineTo(osuToPixelsX(c[0] + xincr) + margins[0], osuToPixelsY(c[1] + yincr) + margins[1]);
-            }
-            // bezier curve
-            else if (obj[5][0] == "B" || (obj[5][0] == "P" && obj[5].length > 3)) {
-                const controlPoints = [[obj[0], obj[1]], ...obj[5].slice(1)];
-                var pointsBuffer = [controlPoints[0]];
-
-                const desiredlength = obj[7] * snake;
-                var actualLength = 0, prevLength = 0;
-                var prevObj = obj;
-
-                for (let i = 1; i < controlPoints.length + 1; i++) {
-                    if (i == controlPoints.length || controlPoints[i][0] == controlPoints[i - 1][0] && controlPoints[i][1] == controlPoints[i - 1][1]) {
-                        
-                        if (pointsBuffer.length == 2) {
-                            const point = pointsBuffer.at(-1);
-                            actualLength += Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
-
-                            if (actualLength > desiredlength) {
-                                const ratio = (desiredlength - prevLength) / (actualLength - prevLength);
-                                bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
-                                break; // out
-                            }
-                            else {
-                                bufferCtx.lineTo(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
-                            }
-
-                            prevObj = point;
-                            prevLength = actualLength;                            
-                        }
-                        else {
-                            var points, lengths;
-
-                            if (!bakedPaths[index]) {
-                                bakedPaths[index] = [];
-                            }
-                            if (!bakedPaths[index][i]) {
-                                [points, lengths] = bakedPaths[index][i] = bezierPoints(pointsBuffer);
-                            }
-                            else {
-                                [points, lengths] = bakedPaths[index][i];
-                            }
-                            
-                            let j;
-                            for (j = 0; j < points.length; j++) {
-                                if (actualLength + lengths[j] > desiredlength) {
-                                    break; // out
-                                }
-                                else {
-                                    bufferCtx.lineTo(osuToPixelsX(points[j][0]) + margins[0], osuToPixelsY(points[j][1]) + margins[1]);                                    
-                                }
-                            }
-
-                            if (j != points.length) {
-                                break; // out
-                            }
-                            else {
-                                prevObj = points.at(-1);
-                                actualLength += lengths.at(-1);
-                                prevLength = actualLength;
-                            }
-                        }
-
-                        pointsBuffer = [];
-                    }
-
-                    pointsBuffer.push(controlPoints[i]);
-                }
-            }
+            drawSlider(obj, obj[7] * snake);
 
             const diameter = radius * 2 / 512 * fieldSize[0] * 0.8;
             bufferCtx.lineJoin = 'round';
@@ -323,32 +190,37 @@ function callback(time) {
 
             // slider border
             bufferCtx.lineWidth = diameter * 1.15;
-            bufferCtx.strokeStyle = "#ffffffa0";
+            bufferCtx.strokeStyle = `rgb(${skin.ini.Colours.SliderBorder})`;
             bufferCtx.stroke();
             bufferCtx.lineWidth = diameter;
             bufferCtx.globalCompositeOperation = "destination-out";
             bufferCtx.strokeStyle = "black";
             bufferCtx.stroke();
 
+            ctx.shadowColor = "#404040";
+            ctx.shadowBlur = 0.11 * osuToPixelsX(radius);
+            ctx.drawImage(bufferCanvas, 0, 0);
+            ctx.shadowColor = "transparent";
+
             // slider gradient
+            const gradientColor = rgb(skin.ini.Colours.SliderTrackOverride) || skin.ini.combos[obj.at(-1)[1] % skin.ini.combos.length];            
+            const inner = gradientColor.map(x => clamp(61, range(0, 170, 61, 255, x), 255));
+            const outer = gradientColor.map(x => x * 0.91);
+
+            bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.globalCompositeOperation = "source-over";
-            bufferCtx.lineWidth = diameter;
-            bufferCtx.strokeStyle = `rgb(0,0,0,0.64)`;
-            bufferCtx.stroke();
-            
-            bufferCtx.globalAlpha = 0.1;
-            for (let divs = 20, i = divs - 1; i > 0; i--) {
+            for (let divs = 20, i = divs; i > 0; i--) {
                 bufferCtx.lineWidth = diameter * i / divs;
-                bufferCtx.strokeStyle = `rgb(43,43,43)`;
+                bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], i / divs)).join(",")})`;
                 bufferCtx.stroke();
             }
             
+            ctx.globalAlpha *= 0.7;
             ctx.drawImage(bufferCanvas, 0, 0);
         }
         if (obj[3] & 1 || obj[3] & 2) {    // hitcircle
 
-            const hitcircle = skin["hitcircle"];
-            const tinted = hitcircle.combos[obj[obj.length - 1][1] % skin.ini.combos.length];
+            const tinted = skin["hitcircle"][obj.at(-1)[1] % skin.ini.combos.length];
             const overlay = skin["hitcircleoverlay"];
             var circleScale;
 
@@ -362,42 +234,57 @@ function callback(time) {
                 circleScale = 1 + easeOut(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.25;
             }
 
-            var size = [osuToPixelsX(radius) * 2 / (hitcircle.isHD ? 256 : 128) * tinted.width * circleScale, osuToPixelsY(radius) * 2 / (hitcircle.isHD ? 256 : 128) * tinted.height * circleScale];
+            var size = [osuToPixelsX(radius) * 2 / 128 * tinted.width * circleScale, osuToPixelsY(radius) * 2 / 128 * tinted.height * circleScale];
             ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
-            size = [osuToPixelsX(radius) * 2 / (overlay.isHD ? 256 : 128) * overlay.img.width * circleScale, osuToPixelsY(radius) * 2 / (overlay.isHD ? 256 : 128) * overlay.img.height * circleScale];
-            ctx.drawImage(overlay.img, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            size = [osuToPixelsX(radius) * 2 / 128 * overlay.width * circleScale, osuToPixelsY(radius) * 2 / 128 * overlay.height * circleScale];
+            ctx.drawImage(overlay, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
-            const combo = obj[obj.length - 1][0].toString();
+            const combo = obj.at(-1)[0].toString();
             if (time > obj[2]) {
                 // number disappears 60 ms after being hit
                 ctx.globalAlpha = clamp(0, (obj[2] + 60 - time) / 60, 1);
             }
 
-            const width = skin["default-" + combo[0]].img.width;
-            const height = skin["default-" + combo[0]].img.height;
-            const isHD = skin["default-" + combo[0]].isHD;
-            const totalWidth = width * combo.length - (combo.length - 1) * skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0];
-            const numberScale = radius / (isHD ? 160 : 80) / 512 * fieldSize[0];
+            const width = skin["default-" + combo[0]].width;
+            const height = skin["default-" + combo[0]].height;
+            const totalWidth = width * combo.length - skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2* (combo.length - 1);
+            const numberScale = radius / 80 / 512 * fieldSize[0];
             for (let i = 0; i < combo.length; i++) {
                 const letter = skin["default-" + combo[i]];
-                ctx.drawImage(letter.img, osuToPixelsX(obj[0]) + margins[0] + (-totalWidth / 2 + (width - skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0]) * i) * numberScale, osuToPixelsY(obj[1]) + margins[1] - height / 2 * numberScale, letter.img.width * numberScale, letter.img.height * numberScale);
+
+                const [ x, y, w, h ] = [
+                    osuToPixelsX(obj[0]) + margins[0] + (-totalWidth / 2 + (width - skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2) * i) * numberScale,
+                    osuToPixelsY(obj[1]) + margins[1] - height / 2 * numberScale,
+                    width * (letter.naturalWidth / skin["default-" + combo[0]].naturalWidth) * numberScale,
+                    height * (letter.naturalHeight / skin["default-" + combo[0]].naturalHeight) * numberScale
+                ]
+
+                ctx.drawImage(letter, x, y, w, h);
             }
         }
-
 
         index--;
     }
 
-    // draw approach circles on top of hitcircles
+    // draw approach circles
     for (let obj of approachQueue) {
         const approachScale = 1 + clamp(0, 1 - (time - (obj[2] - preempt)) / preempt, 1) * 3;
         ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.9) / 0.9 * 0.5;
         
         // get tinted approachcircle
-        const tinted = skin["approachcircle"].combos[obj[obj.length - 1][1] % skin.ini.combos.length];
+        const tinted = skin["approachcircle"][obj.at(-1)[1] % skin.ini.combos.length];
 
-        ctx.drawImage(tinted, osuToPixelsX(obj[0] - radius * approachScale) + margins[0], osuToPixelsY(obj[1] - radius * approachScale) + margins[1], radius / 256 * fieldSize[0] * approachScale, radius / 192 * fieldSize[1] * approachScale);
+        const size = [osuToPixelsX(radius) * 2 / 128 * tinted.width * approachScale, osuToPixelsY(radius) * 2 / 128 * tinted.height * approachScale];
+        ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsX(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
     }
+
+    // draw sliderballs
+    ctx.globalAlpha = 1;
+    for (let obj of followQueue) {
+        const followPos = getFollowPosition(obj, (time - obj[2]) / obj.at(-2) * obj[7]);
+        ctx.fillRect(osuToPixelsX(followPos[0]) + margins[0] - 20, osuToPixelsY(followPos[1]) + margins[1] - 20, 40, 40);
+    }
+
 
     ctx.globalAlpha = 1;
 
@@ -409,12 +296,177 @@ function callback(time) {
     }
 }
 
-const isToBeRendered = (obj, time) => {
-    if (obj[3] & 2)
-        return 1
-    else
-        return obj[2] + fadeout > time;
+const drawSlider = (obj, length, draw = true) => {
+    // linear
+    if (obj[5][0] == "L") {
+        var actualLength = 0, prevLength = 0;
+        var prevObj = obj;
+
+        for (let i = 1; i < obj[5].length; i++) {
+            const point = obj[5][i];
+            actualLength += Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
+
+            if (actualLength > length) {
+                const ratio = (length - prevLength) / (actualLength - prevLength);
+                if (draw) {
+                    bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
+                    break;
+                }
+                else {
+                    return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio];
+                }
+            }
+            else {
+                if (draw) 
+                    bufferCtx.lineTo(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
+            }
+
+            prevObj = point;
+            prevLength = actualLength;
+        }
+
+        if (actualLength < length) {
+            const point = obj[5].at(-1);
+            prevObj = obj[5].at(-2) ?? obj;
+
+            prevLength = actualLength - Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
+            const ratio = (length - prevLength) / (actualLength - prevLength);
+            if (draw)
+                bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
+            else
+                return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio];
+        }
+
+        if (!draw)
+            return [obj[5].at(-1)[0], obj[5].at(-1)[1]];
+    }
+    // perfect circle
+    else if (obj[5][0] == "P" && obj[5].length == 3) {
+        // https://stackoverflow.com/a/22793494/8414010
+        const a = [obj[0], obj[1]];
+        const b = [obj[5][1][0], obj[5][1][1]];
+        const c = [obj[5][2][0], obj[5][2][1]];
+        const x1 = 2 * (a[0] - b[0]);
+        const y1 = 2 * (a[1] - b[1]);
+        const z1 = a[0] * a[0] + a[1] * a[1] - b[0] * b[0] - b[1] * b[1];
+        const x2 = 2 * (a[0] - c[0]);
+        const y2 = 2 * (a[1] - c[1]);
+        const z2 = a[0] * a[0] + a[1] * a[1] - c[0] * c[0] - c[1] * c[1];
+
+        const y = (z2 - (x2 * z1) / x1) / (y2 - (x2 * y1) / x1);
+        const x = (z1 - y1 * y) / x1;
+
+        const radius = Math.sqrt((a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y));
+        const anglea = Math.atan2(a[1] - y, a[0] - x);
+        var anglec = Math.atan2(c[1] - y, c[0] - x);
+        const det = determinant([[a[0], a[1], 1], [b[0], b[1], 1], [c[0], c[1], 1]]);
+
+        const arclength = radius * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
+        var xincr = null, yincr = null;
+        if (arclength > length) {
+            anglec = anglea + length / radius * (det > 0 ? 1 : -1);
+        }
+        else {
+            const slope = 1 / Math.tan(anglec);
+            xincr = Math.sqrt(Math.pow(length - arclength, 2) / (1 + slope * slope)) * (anglec < 0 ? -1 : 1);
+            yincr = xincr * slope * (anglec < Math.PI ? -1 : 1);
+        }
+
+        if (draw) {
+            bufferCtx.arc(osuToPixelsX(x) + margins[0], osuToPixelsY(y) + margins[1], osuToPixelsX(radius), anglea, anglec, det < 0);
+            if (xincr)
+                bufferCtx.lineTo(osuToPixelsX(c[0] + xincr) + margins[0], osuToPixelsY(c[1] + yincr) + margins[1]);
+        }
+        else {
+            if (xincr) {
+                return [c[0] + xincr, c[1] + yincr];
+            }
+            else {
+                return [x + Math.cos(anglec) * radius, y + Math.sin(anglec) * radius];
+            }
+        }
+    }
+    // bezier curve
+    else if (obj[5][0] == "B" || (obj[5][0] == "P" && obj[5].length > 3)) {
+        const controlPoints = [[obj[0], obj[1]], ...obj[5].slice(1)];
+        var pointsBuffer = [controlPoints[0]];
+
+        var actualLength = 0, prevLength = 0;
+        var prevObj = obj;
+
+        for (let i = 1; i < controlPoints.length + 1; i++) {
+            if (i == controlPoints.length || controlPoints[i][0] == controlPoints[i - 1][0] && controlPoints[i][1] == controlPoints[i - 1][1]) {
+
+                if (pointsBuffer.length == 2) {
+                    const point = pointsBuffer.at(-1);
+                    actualLength += Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
+
+                    if (actualLength > length) {
+                        const ratio = (length - prevLength) / (actualLength - prevLength);
+                        if (draw) {
+                            bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
+                            break; // out
+                        }
+                        else {
+                            return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio];
+                        }
+                    }
+                    else {
+                        if (draw)
+                            bufferCtx.lineTo(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
+                    }
+
+                    prevObj = point;
+                    prevLength = actualLength;
+                }
+                else {
+                    var points, lengths;
+                    const index = beatmap.HitObjects.indexOf(obj);
+
+                    if (!bakedPaths[index]) {
+                        bakedPaths[index] = [];
+                    }
+                    if (!bakedPaths[index][i]) {
+                        [points, lengths] = bakedPaths[index][i] = bezierPoints(pointsBuffer);
+                    }
+                    else {
+                        [points, lengths] = bakedPaths[index][i];
+                    }
+
+                    let j;
+                    for (j = 0; j < points.length; j++) {
+                        if (actualLength + lengths[j] > length) {
+                            break; // out
+                        }
+                        else {
+                            if (draw)
+                                bufferCtx.lineTo(osuToPixelsX(points[j][0]) + margins[0], osuToPixelsY(points[j][1]) + margins[1]);
+                        }
+                    }
+
+                    if (j != points.length) {
+                        if (!draw)
+                            return points[j];
+                        else
+                            break; // out
+                    }
+                    else {
+                        prevObj = points.at(-1);
+                        actualLength += lengths.at(-1);
+                        prevLength = actualLength;
+                    }
+                }
+
+                pointsBuffer = [];
+            }
+
+            pointsBuffer.push(controlPoints[i]);
+        }
+
+        return obj[5].at(-1);
+    }
 }
+const getFollowPosition = (obj, length) => drawSlider(obj, length, false);
 
 const bezierPoints = (points, start = 0, end = 1) => {
     const arr = [], lengths = [0];
@@ -460,7 +512,6 @@ const fact = (n) => {
 const bernstain = (i, n, t) => {
     return fact(n) / (fact(i) * fact(n - i)) * Math.pow(t, i) * Math.pow(1 - t, n - i);
 }
-
 
 // https://stackoverflow.com/a/57696101/8414010
 const determinant = (m) => {
@@ -521,6 +572,7 @@ const parseBeatmap = (text) => {
                 break;
             }
             case "Events": {
+                result[currCategory].push(line.trim().split(","));
                 break;
             }
             default: {
@@ -609,3 +661,6 @@ const easeOut = (t) => {
 
 const mod = (a, n) => (a % n + n) % n;
 const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
+const lerp = (min, max, t) => (max - min) * t + min;
+const range = (low1, high1, low2, high2, t) => (t - low1) / (high1 - low1) * (high2 - low2) + low2;
+const rgb = (val) => val.split(",").map(x => clamp(0, parseInt(x.trim()), 255));
