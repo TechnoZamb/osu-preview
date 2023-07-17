@@ -1,3 +1,5 @@
+import { clamp } from "./functions.js";
+
 export class ProgressBar {
     easingFactor = 0.2; offset = 0.001;
     targetValue = -1; actualValue = 0.5;
@@ -92,5 +94,3 @@ export class ProgressBar {
         window.requestAnimationFrame(() => this.frame());
     }
 }
-
-const clamp = (min, n, max) => Math.min(max, Math.max(min, n));

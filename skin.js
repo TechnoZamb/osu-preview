@@ -1,4 +1,4 @@
-import urlJoin from "./url-join.js";
+import { rgb, urlJoin } from "./functions.js";
 
 const DEFAULT_SKIN_PATH = "defaultskin/";
 
@@ -10,9 +10,12 @@ const requiredFiles = {
     "default-": { tinted: false, enumerable: 9 }
 };
 const defaultValues = {            // for skin.ini
+    General: {
+        AllowSliderBallTint: "1",
+    },
     Colours: {
         SliderBorder: "255,255,255",
-        SliderTrackOverride: false
+        SliderTrackOverride: false,
     }
 };
 
@@ -106,40 +109,47 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
     //      0: fail
 
     const imgBaseNames = [], imgsURLs = [], stages = [];
-    const imgs2 = [];
+    const imgs = [];
 
     for (let [key, val] of Object.entries(requiredFiles)) {
         if (val.enumerable) {
-            for (let i = 0; i <= (val.enumerable == -1 ? 0 : val.enumerable); i++) {
+            if (val.enumerable == -1) {
                 if (loadBeatmapSkin) {
-                    imgsURLs.push(urlJoin(beatmapPath, key + i + ".png"));
-                    stages.push(5);
-                    imgs2.push({
-                        url: urlJoin(beatmapPath, key + i + ".png"), stage: 5, isHD: false, baseName: key + i, baseBaseName: key
-                    });
+
                 }
-                else {
-                    imgsURLs.push(urlJoin(skinPath, key + i + "@2x.png"));
-                    stages.push(4);
-                    imgs2.push({
-                        url: urlJoin(skinPath, key + i + "@2x.png"), stage: 4, isHD: true, baseName: key + i, baseBaseName: key
-                    });
+            }
+            else {
+                for (let i = 0; i <= val.enumerable; i++) {
+                    if (loadBeatmapSkin) {
+                        imgsURLs.push(urlJoin(beatmapPath, key + i + ".png"));
+                        stages.push(5);
+                        imgs.push({
+                            url: urlJoin(beatmapPath, key + i + ".png"), stage: 5, isHD: false, baseName: key + i, baseBaseName: key
+                        });
+                    }
+                    else {
+                        imgsURLs.push(urlJoin(skinPath, key + i + "@2x.png"));
+                        stages.push(4);
+                        imgs.push({
+                            url: urlJoin(skinPath, key + i + "@2x.png"), stage: 4, isHD: true, baseName: key + i, baseBaseName: key
+                        });
+                    }
+                    imgBaseNames.push(key + i);
                 }
-                imgBaseNames.push(key + i);
             }
         }
         else {
             if (loadBeatmapSkin) {
                 imgsURLs.push(urlJoin(beatmapPath, key + ".png"));
                 stages.push(5);
-                imgs2.push({
+                imgs.push({
                     url: urlJoin(beatmapPath, key + ".png"), stage: 5, isHD: false, baseName: key, baseBaseName: key
                 });
             }
             else {
                 imgsURLs.push(urlJoin(skinPath, key + "@2x.png"));
                 stages.push(4);
-                imgs2.push({
+                imgs.push({
                     url: urlJoin(skinPath, key + "@2x.png"), stage: 4, isHD: true, baseName: key, baseBaseName: key
                 });
             }
@@ -147,11 +157,11 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
         }
     }
 
-    (await asyncLoadImages(imgs2.map(o => o.url))).map((o, i) => imgs2[i].img = o);
+    (await asyncLoadImages(imgs.map(o => o.url))).map((o, i) => imgs[i].img = o);
 
     var completed = 0;
-    while (completed < imgs2.length) {
-        const obj = imgs2[completed];
+    while (completed < imgs.length) {
+        const obj = imgs[completed];
 
         // if img loaded correctly
         if (obj.img.complete && obj.img.naturalWidth !== 0) {
@@ -193,11 +203,99 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
         }
     }
 
-    // loading complete
+    const sliderbs = [];
+    var index = 0;
+    var sliderb = { baseBaseName: "sliderb", baseName: "sliderb0", stage: (loadBeatmapSkin ? 10 : 8) };
+    var stage = 0;
 
+    outer:
+    while (true) {
+        switch (sliderb.stage) {
+            case 10:
+                sliderb.url = urlJoin(beatmapPath, sliderb.baseBaseName + index + ".png");
+                sliderb.isHD = false;
+                break;
+            case 9:
+                sliderb.url = urlJoin(beatmapPath, "sliderb.png");
+                sliderb.isHD = false;
+                break;
+            case 8:
+                sliderb.url = urlJoin(skinPath, sliderb.baseBaseName + index + "@2x.png");
+                sliderb.isHD = true;
+                break;
+            case 7:
+                sliderb.url = urlJoin(skinPath, sliderb.baseBaseName + index + ".png");
+                sliderb.isHD = false;
+                break;
+            case 6:
+                sliderb.url = urlJoin(skinPath, "sliderb@2x.png");
+                sliderb.isHD = true;
+                break;
+            case 5:
+                sliderb.url = urlJoin(skinPath, "sliderb.png");
+                sliderb.isHD = false;
+                break;
+            case 4:
+                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, sliderb.baseBaseName + index + "@2x.png");
+                sliderb.isHD = true;
+                break;
+            case 3:
+                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, sliderb.baseBaseName + index + ".png");
+                sliderb.isHD = false;
+                break;
+            case 2:
+                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, "sliderb@2x.png");
+                sliderb.isHD = true;
+                break;
+            case 1:
+                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, "sliderb.png");
+                sliderb.isHD = false;
+                break;
+            default:
+                break outer;
+        }
+
+        sliderb.img = await asyncLoadImages(sliderb.url);
+
+        if (sliderb.img.complete && sliderb.img.naturalWidth !== 0) {
+            sliderbs.push(sliderb);
+            if (stage == 0) {
+                if (sliderb.stage <= 2)
+                    break outer;
+                else if (sliderb.stage <= 4)
+                    stage = 4;
+
+                else if (sliderb.stage <= 6)
+                    break outer;
+                else if (sliderb.stage <= 8)
+                    stage = 8;
+                
+                else if (sliderb.stage <= 9)
+                    break outer;
+                else
+                    stage = 10;
+            }
+            index++;
+            sliderb = { baseBaseName: "sliderb", baseName: "sliderb" + index, stage: stage };
+        }
+        else {
+            sliderb.stage--;
+            if (sliderb.stage <= 0 || (stage == 4 && sliderb.stage < 3) || (stage == 8 && sliderb.stage < 7) || stage == 10)
+                break outer;
+        }
+    }
+
+    if (sliderbs.length == 0) {
+        throw new Error();
+    }
+    if ([1,2,5,6,9].includes(sliderbs[0].stage)) {
+        sliderbs[0].baseName = "sliderb";
+    }
+
+    // loading complete
     var result = { ini: ini };
 
-    for (let obj of imgs2) {
+    for (let obj of imgs) {
         if (obj.isHD) {
             obj.img.width /= 2;
             obj.img.height /= 2;
@@ -213,6 +311,25 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
             result[obj.baseName] = obj.img;
         }
     }
+
+    for (let i = 0; i < sliderbs.length; i++) {
+        if (sliderbs[i].isHD) {
+            sliderbs[i].img.width /= 2;
+            sliderbs[i].img.height /= 2;
+        }
+
+        if (parseInt(ini.General.AllowSliderBallTint) == 1) {
+            const temp = sliderbs[i].img;
+            sliderbs[i] = [];
+            for (let combo of ini.combos) {
+                sliderbs[i].push(tintImage(temp, combo));
+            }
+        }
+        else {
+            sliderbs[i] = [ sliderbs[i].img ];
+        }
+    }
+    result["sliderb"] = sliderbs;
 
     return result;
 }
@@ -266,10 +383,11 @@ function parseIni(text) {
     return result;
 }
 
+const buffer = document.createElement("canvas");
+const context = buffer.getContext("2d", { willReadFrequently: true });
+
 function tintImage(img, color) {
-    const buffer = document.createElement("canvas");
     buffer.width = img.width; buffer.height = img.height;
-    const context = buffer.getContext("2d");
     context.drawImage(img, 0, 0, img.width, img.height);
     const data = context.getImageData(0, 0, img.width, img.height);
 
@@ -280,9 +398,5 @@ function tintImage(img, color) {
     }
 
     context.putImageData(data, 0, 0);
-    return buffer;
+    return Object.assign(new Image(), { src: buffer.toDataURL() });
 }
-
-const rgb = (val) => val.split(",").map(x => clamp(0, parseInt(x.trim()), 255));
-
-const clamp = (min, n, max) => Math.min(max, Math.max(min, n));

@@ -1,11 +1,11 @@
 import { MusicPlayer } from "./player.js";
 import { ProgressBar } from "./progress.js";
 import { parseSkin, asyncLoadImages } from "./skin.js";
-import urlJoin from "./url-join.js";
+import { mod, clamp, lerp, range, rgb } from "./functions.js";
 
 const mapFolder = 0 ? "songs/1712395 Ashrount - AureoLe ~for Triumph~/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
 const diff = 0 ? "Ashrount - AureoLe ~for Triumph~ (R3m) [FINAL].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [ssadasdsa].osu";
-const skinName = 0 ? "- YUGEN -" : "_Kynan-2017-08-10";
+const skinName = 1 ? "- YUGEN -" : "_Kynan-2017-08-10";
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 var bezierSegmentMaxLengthSqrd;             // in osu pixels, squared
@@ -80,7 +80,7 @@ window.onload = async (e) => {
     }
 
     bg = await asyncLoadImages("b/leah miku.jpg");
-    skin = await parseSkin("skins/" + skinName);
+    skin = await parseSkin("skins/" + skinName, mapFolder, beatmap, true);
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
         bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
@@ -95,7 +95,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 2.205//41.083;
+    player.currentTime = 1.635//41.083;
 }
 
 function callback(time) {
@@ -239,12 +239,13 @@ function callback(time) {
             size = [osuToPixelsX(radius) * 2 / 128 * overlay.width * circleScale, osuToPixelsY(radius) * 2 / 128 * overlay.height * circleScale];
             ctx.drawImage(overlay, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
-            const combo = obj.at(-1)[0].toString();
+            // draw combo number
             if (time > obj[2]) {
                 // number disappears 60 ms after being hit
                 ctx.globalAlpha = clamp(0, (obj[2] + 60 - time) / 60, 1);
             }
-
+            
+            const combo = obj.at(-1)[0].toString();
             const width = skin["default-" + combo[0]].width;
             const height = skin["default-" + combo[0]].height;
             const totalWidth = width * combo.length - skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2* (combo.length - 1);
@@ -257,7 +258,7 @@ function callback(time) {
                     osuToPixelsY(obj[1]) + margins[1] - height / 2 * numberScale,
                     width * (letter.naturalWidth / skin["default-" + combo[0]].naturalWidth) * numberScale,
                     height * (letter.naturalHeight / skin["default-" + combo[0]].naturalHeight) * numberScale
-                ]
+                ];
 
                 ctx.drawImage(letter, x, y, w, h);
             }
@@ -282,12 +283,20 @@ function callback(time) {
     ctx.globalAlpha = 1;
     for (let obj of followQueue) {
         const followPos = getFollowPosition(obj, (time - obj[2]) / obj.at(-2) * obj[7]);
-        ctx.fillRect(osuToPixelsX(followPos[0]) + margins[0] - 20, osuToPixelsY(followPos[1]) + margins[1] - 20, 40, 40);
+        const sliderbFrame = parseInt((time - obj[2]) / 16.6);
+        const sliderb = skin.sliderb[sliderbFrame % skin.sliderb.length][parseInt(skin.ini.General.AllowSliderBallTint) ? obj.at(-1)[1] % skin.ini.combos.length : 0];
+
+        const size = [osuToPixelsX(radius) / 64 * sliderb.width, osuToPixelsY(radius) / 64 * sliderb.height];
+        ctx.save();
+        ctx.translate(osuToPixelsX(followPos[0]) + margins[0], osuToPixelsY(followPos[1]) + margins[1]);
+        ctx.rotate(followPos[2]);
+        ctx.drawImage(sliderb, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+        ctx.restore();
     }
 
-
+    
     ctx.globalAlpha = 1;
-
+    
     ctx.fillStyle = "rgb(255,0,0,0.5)";
     ctx.globalCompositeOperation = "destination-out"
     var curSize = 100;
@@ -313,7 +322,7 @@ const drawSlider = (obj, length, draw = true) => {
                     break;
                 }
                 else {
-                    return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio];
+                    return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio, Math.atan2(point[1] - prevObj[1], point[0] - prevObj[0])];
                 }
             }
             else {
@@ -334,11 +343,13 @@ const drawSlider = (obj, length, draw = true) => {
             if (draw)
                 bufferCtx.lineTo(osuToPixelsX(prevObj[0] + (point[0] - prevObj[0]) * ratio) + margins[0], osuToPixelsY(prevObj[1] + (point[1] - prevObj[1]) * ratio) + margins[1]);
             else
-                return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio];
+                return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio, Math.atan2(point[1] - prevObj[1], point[0] - prevObj[0])];
         }
 
-        if (!draw)
-            return [obj[5].at(-1)[0], obj[5].at(-1)[1]];
+        if (!draw) {
+            const lastPoint = obj[5].at(-1);
+            return [lastPoint[0], lastPoint[1], Math.atan2(lastPoint[1] - obj[1], lastPoint[0] - obj[0])];
+        }
     }
     // perfect circle
     else if (obj[5][0] == "P" && obj[5].length == 3) {
@@ -356,15 +367,15 @@ const drawSlider = (obj, length, draw = true) => {
         const y = (z2 - (x2 * z1) / x1) / (y2 - (x2 * y1) / x1);
         const x = (z1 - y1 * y) / x1;
 
-        const radius = Math.sqrt((a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y));
+        const r = Math.sqrt((a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y));
         const anglea = Math.atan2(a[1] - y, a[0] - x);
         var anglec = Math.atan2(c[1] - y, c[0] - x);
         const det = determinant([[a[0], a[1], 1], [b[0], b[1], 1], [c[0], c[1], 1]]);
 
-        const arclength = radius * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
+        const arclength = r * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
         var xincr = null, yincr = null;
         if (arclength > length) {
-            anglec = anglea + length / radius * (det > 0 ? 1 : -1);
+            anglec = anglea + length / r * (det > 0 ? 1 : -1);
         }
         else {
             const slope = 1 / Math.tan(anglec);
@@ -373,16 +384,17 @@ const drawSlider = (obj, length, draw = true) => {
         }
 
         if (draw) {
-            bufferCtx.arc(osuToPixelsX(x) + margins[0], osuToPixelsY(y) + margins[1], osuToPixelsX(radius), anglea, anglec, det < 0);
+            bufferCtx.arc(osuToPixelsX(x) + margins[0], osuToPixelsY(y) + margins[1], osuToPixelsX(r), anglea, anglec, det < 0);
             if (xincr)
                 bufferCtx.lineTo(osuToPixelsX(c[0] + xincr) + margins[0], osuToPixelsY(c[1] + yincr) + margins[1]);
         }
         else {
             if (xincr) {
-                return [c[0] + xincr, c[1] + yincr];
+                return [c[0] + xincr, c[1] + yincr, Math.atan2(yincr, xincr)];
             }
             else {
-                return [x + Math.cos(anglec) * radius, y + Math.sin(anglec) * radius];
+                const endp = [x + Math.cos(anglec) * r, y + Math.sin(anglec) * r];
+                return [endp[0], endp[1], Math.atan2(endp[1] - y, endp[0] - x) + Math.PI / 2 * (det > 0 ? 1 : -1)];
             }
         }
     }
@@ -408,7 +420,7 @@ const drawSlider = (obj, length, draw = true) => {
                             break; // out
                         }
                         else {
-                            return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio];
+                            return [prevObj[0] + (point[0] - prevObj[0]) * ratio, prevObj[1] + (point[1] - prevObj[1]) * ratio, Math.atan2(point[1] - prevObj[1], point[0] - prevObj[0])];
                         }
                     }
                     else {
@@ -433,28 +445,31 @@ const drawSlider = (obj, length, draw = true) => {
                         [points, lengths] = bakedPaths[index][i];
                     }
 
-                    let j;
-                    for (j = 0; j < points.length; j++) {
+                    for (let j = 0; j < points.length; j++) {
+                        // we have surpassed the desired length
                         if (actualLength + lengths[j] > length) {
-                            break; // out
+                            const prevp = points[j - 1] ?? obj;
+                            const prevl = lengths[j - 1] ?? 0;
+                            const ratio = (length - prevl) / (lengths[j] - prevl);
+                            if (draw) {
+                                bufferCtx.lineTo(osuToPixelsX(lerp(prevp[0], points[j][0], ratio)) + margins[0], osuToPixelsY(lerp(prevp[1], points[j][1], ratio)) + margins[1]);
+                                return;
+                            }
+                            else {
+                                return [lerp(prevp[0], points[j][0], ratio), lerp(prevp[1], points[j][1], ratio), Math.atan2(points[j][1] - prevp[1], points[j][0] - prevp[0])];
+                            }
                         }
+                        // not reached desired length yet; keep drawing
                         else {
                             if (draw)
                                 bufferCtx.lineTo(osuToPixelsX(points[j][0]) + margins[0], osuToPixelsY(points[j][1]) + margins[1]);
                         }
                     }
 
-                    if (j != points.length) {
-                        if (!draw)
-                            return points[j];
-                        else
-                            break; // out
-                    }
-                    else {
-                        prevObj = points.at(-1);
-                        actualLength += lengths.at(-1);
-                        prevLength = actualLength;
-                    }
+                    // not reached desired length yet
+                    prevObj = points.at(-1);
+                    actualLength += lengths.at(-1);
+                    prevLength = actualLength;
                 }
 
                 pointsBuffer = [];
@@ -463,13 +478,17 @@ const drawSlider = (obj, length, draw = true) => {
             pointsBuffer.push(controlPoints[i]);
         }
 
-        return obj[5].at(-1);
+        if (!draw) {
+            return obj[5].at(-1);
+        }
+        else {
+        }
     }
 }
 const getFollowPosition = (obj, length) => drawSlider(obj, length, false);
 
 const bezierPoints = (points, start = 0, end = 1) => {
-    const arr = [], lengths = [0];
+    const arr = [], lengths = [];
 
     const _bezierPoints = (start, end) => {
         const startP = bezierAt(points, start);
@@ -482,7 +501,7 @@ const bezierPoints = (points, start = 0, end = 1) => {
         }
         else {
             arr.push(endP);
-            lengths.push(lengths.at(-1) + Math.sqrt(length));
+            lengths.push((lengths.at(-1) ?? 0) + Math.sqrt(length));
         }
     };
     _bezierPoints(start, end);
@@ -658,9 +677,3 @@ const binarySearch = (objects, time) => {
 const easeOut = (t) => {
     return 1.5 * t / (0.5 + t);
 }
-
-const mod = (a, n) => (a % n + n) % n;
-const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
-const lerp = (min, max, t) => (max - min) * t + min;
-const range = (low1, high1, low2, high2, t) => (t - low1) / (high1 - low1) * (high2 - low2) + low2;
-const rgb = (val) => val.split(",").map(x => clamp(0, parseInt(x.trim()), 255));
