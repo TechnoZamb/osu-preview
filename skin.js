@@ -6,12 +6,15 @@ const requiredFiles = {
     "approachcircle": { tinted: true },
     "hitcircle": { tinted: true },
     "hitcircleoverlay": { tinted: false },
+    "default-": { tinted: false, enumerable: 9 },
     "sliderb" : { tinted: true, enumerable: -1 },
-    "default-": { tinted: false, enumerable: 9 }
+    "sliderfollowcircle": { tinted: false },
+    "reversearrow": { tinted: false },
 };
 const defaultValues = {            // for skin.ini
     General: {
         AllowSliderBallTint: "1",
+        SliderBallFlip: "1",
     },
     Colours: {
         SliderBorder: "255,255,255",

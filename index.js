@@ -4,7 +4,7 @@ import { parseSkin, asyncLoadImages } from "./skin.js";
 import { mod, clamp, lerp, range, rgb } from "./functions.js";
 
 const mapFolder = 0 ? "songs/1712395 Ashrount - AureoLe ~for Triumph~/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
-const diff = 0 ? "Ashrount - AureoLe ~for Triumph~ (R3m) [FINAL].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [ssadasdsa].osu";
+const diff = 0 ? "Ashrount - AureoLe ~for Triumph~ (R3m) [FINAL].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasasasasa].osu";
 const skinName = 1 ? "- YUGEN -" : "_Kynan-2017-08-10";
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
@@ -95,7 +95,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 1.635//41.083;
+    player.currentTime = 0.569//41.083;
 }
 
 function callback(time) {
@@ -155,7 +155,7 @@ function callback(time) {
     while (index >= 0) {
         const obj = beatmap.HitObjects[index];
 
-        if (obj[2] + (obj[3] & 2 ? obj.at(-2) : 0) + fadeout < time ||
+        if (obj[2] + (obj[3] & 2 ? obj.at(-2) * obj[6] : 0) + fadeout < time ||
             obj[2] - preempt > time) {
             index--;
             continue;
@@ -167,16 +167,16 @@ function callback(time) {
             bufferCtx.beginPath();
             
             var snake;
-            if (time <= obj[2]) {
+            if (time < obj[2]) {
                 approachQueue.push(obj);
                 ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
                 snake = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.5) * 2;
             }
             else {
-                if (time < obj[2] + obj.at(-2)) {
+                if (time < obj[2] + obj.at(-2) * obj[6]) {
                     followQueue.push(obj);
                 }
-                ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) + fadeout - time) / fadeout, 1);
+                ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * obj[6] + fadeout - time) / fadeout, 1);
                 snake = 1;
             }
 
@@ -184,8 +184,8 @@ function callback(time) {
             drawSlider(obj, obj[7] * snake);
 
             const diameter = radius * 2 / 512 * fieldSize[0] * 0.8;
-            bufferCtx.lineJoin = 'round';
-            bufferCtx.lineCap = 'round';
+            bufferCtx.lineJoin = "round";
+            bufferCtx.lineCap = "round";
             bufferCtx.globalAlpha = 1
 
             // slider border
@@ -209,7 +209,7 @@ function callback(time) {
 
             bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.globalCompositeOperation = "source-over";
-            for (let divs = 20, i = divs; i > 0; i--) {
+            for (let divs = 0, i = divs; i > 0; i--) {
                 bufferCtx.lineWidth = diameter * i / divs;
                 bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], i / divs)).join(",")})`;
                 bufferCtx.stroke();
@@ -279,17 +279,31 @@ function callback(time) {
         ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsX(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
     }
 
-    // draw sliderballs
+    // draw slider elements
     ctx.globalAlpha = 1;
     for (let obj of followQueue) {
-        const followPos = getFollowPosition(obj, (time - obj[2]) / obj.at(-2) * obj[7]);
+        const slideN = (time - obj[2]) / obj.at(-2);
+        const ratio = (Math.floor(slideN) % 2) ? (1 - (slideN % 1)) : (slideN % 1);
+
+        const followPos = getFollowPosition(obj, ratio * obj[7]);
+
+        const scaleX = (parseInt(skin.ini.General.SliderBallFlip) && Math.floor(slideN) % 2) ? -1 : 1;
+        const scaleY = followPos[3] ? -1 : 1;
+
+        // follow circle
+        const followCircle = skin["sliderfollowcircle"];
+        var size = [osuToPixelsX(radius) / 64 * followCircle.width, osuToPixelsY(radius) / 64 * followCircle.height];
+        ctx.drawImage(followCircle, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+
+        // slider ball
         const sliderbFrame = parseInt((time - obj[2]) / 16.6);
         const sliderb = skin.sliderb[sliderbFrame % skin.sliderb.length][parseInt(skin.ini.General.AllowSliderBallTint) ? obj.at(-1)[1] % skin.ini.combos.length : 0];
 
-        const size = [osuToPixelsX(radius) / 64 * sliderb.width, osuToPixelsY(radius) / 64 * sliderb.height];
+        size = [osuToPixelsX(radius) / 64 * sliderb.width, osuToPixelsY(radius) / 64 * sliderb.height];
         ctx.save();
         ctx.translate(osuToPixelsX(followPos[0]) + margins[0], osuToPixelsY(followPos[1]) + margins[1]);
         ctx.rotate(followPos[2]);
+        ctx.scale(scaleX, scaleY);
         ctx.drawImage(sliderb, -size[0] / 2, -size[1] / 2, size[0], size[1]);
         ctx.restore();
     }
@@ -336,7 +350,7 @@ const drawSlider = (obj, length, draw = true) => {
 
         if (actualLength < length) {
             const point = obj[5].at(-1);
-            prevObj = obj[5].at(-2) ?? obj;
+            prevObj = obj[5].length > 2 ? obj[5].at(-2) : obj;
 
             prevLength = actualLength - Math.sqrt(Math.pow(point[0] - prevObj[0], 2) + Math.pow(point[1] - prevObj[1], 2));
             const ratio = (length - prevLength) / (actualLength - prevLength);
@@ -357,20 +371,27 @@ const drawSlider = (obj, length, draw = true) => {
         const a = [obj[0], obj[1]];
         const b = [obj[5][1][0], obj[5][1][1]];
         const c = [obj[5][2][0], obj[5][2][1]];
-        const x1 = 2 * (a[0] - b[0]);
+        const x1 = 2 * (a[0] - b[0]) || 0.00001;
         const y1 = 2 * (a[1] - b[1]);
         const z1 = a[0] * a[0] + a[1] * a[1] - b[0] * b[0] - b[1] * b[1];
         const x2 = 2 * (a[0] - c[0]);
         const y2 = 2 * (a[1] - c[1]);
         const z2 = a[0] * a[0] + a[1] * a[1] - c[0] * c[0] - c[1] * c[1];
 
-        const y = (z2 - (x2 * z1) / x1) / (y2 - (x2 * y1) / x1);
-        const x = (z1 - y1 * y) / x1;
+        var y = (z2 - (x2 * z1) / x1) / (y2 - (x2 * y1) / x1);
+        var x = (z1 - y1 * y) / x1;
 
         const r = Math.sqrt((a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y));
         const anglea = Math.atan2(a[1] - y, a[0] - x);
         var anglec = Math.atan2(c[1] - y, c[0] - x);
         const det = determinant([[a[0], a[1], 1], [b[0], b[1], 1], [c[0], c[1], 1]]);
+
+        // if determinant = 0, the three points are in a straight line, so handle the slider as if it was a linear slider
+        if (det == 0) {
+            obj[5][0] = "L";
+            drawSlider(obj, length, draw);
+            return;
+        }
 
         const arclength = r * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
         var xincr = null, yincr = null;
@@ -394,7 +415,9 @@ const drawSlider = (obj, length, draw = true) => {
             }
             else {
                 const endp = [x + Math.cos(anglec) * r, y + Math.sin(anglec) * r];
-                return [endp[0], endp[1], Math.atan2(endp[1] - y, endp[0] - x) + Math.PI / 2 * (det > 0 ? 1 : -1)];
+                // if ball angle at start of slider is > 0, draw ball flipped
+                const flipped = det < 0 ? anglea < 0 : anglea > 0;
+                return [endp[0], endp[1], Math.atan2(endp[1] - y, endp[0] - x) + Math.PI / 2 * (det > 0 ? 1 : -1), flipped];
             }
         }
     }
@@ -431,7 +454,7 @@ const drawSlider = (obj, length, draw = true) => {
                     prevObj = point;
                     prevLength = actualLength;
                 }
-                else {
+                else if (pointsBuffer.length > 2) {
                     var points, lengths;
                     const index = beatmap.HitObjects.indexOf(obj);
 
@@ -448,9 +471,9 @@ const drawSlider = (obj, length, draw = true) => {
                     for (let j = 0; j < points.length; j++) {
                         // we have surpassed the desired length
                         if (actualLength + lengths[j] > length) {
-                            const prevp = points[j - 1] ?? obj;
+                            const prevp = points[j - 1] ?? pointsBuffer[0];
                             const prevl = lengths[j - 1] ?? 0;
-                            const ratio = (length - prevl) / (lengths[j] - prevl);
+                            const ratio = (length - (prevl + actualLength)) / (lengths[j] - prevl);
                             if (draw) {
                                 bufferCtx.lineTo(osuToPixelsX(lerp(prevp[0], points[j][0], ratio)) + margins[0], osuToPixelsY(lerp(prevp[1], points[j][1], ratio)) + margins[1]);
                                 return;
@@ -484,6 +507,8 @@ const drawSlider = (obj, length, draw = true) => {
         else {
         }
     }
+
+    return [0,0];
 }
 const getFollowPosition = (obj, length) => drawSlider(obj, length, false);
 
