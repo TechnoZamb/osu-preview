@@ -80,7 +80,7 @@ window.onload = async (e) => {
     }
 
     bg = await asyncLoadImages("b/leah miku.jpg");
-    skin = await parseSkin("skins/" + skinName, mapFolder, beatmap, true);
+    skin = await parseSkin("skins/" + skinName, mapFolder, beatmap, false);
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
         bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
@@ -161,7 +161,7 @@ function callback(time) {
             continue;
         }
 
-        if (obj[3] & 2) {      // slider
+        if (obj[3] & 2) {                   // slider
             bufferCtx.globalCompositeOperation = "source-over";
             bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.beginPath();
@@ -209,7 +209,7 @@ function callback(time) {
 
             bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.globalCompositeOperation = "source-over";
-            for (let divs = 0, i = divs; i > 0; i--) {
+            for (let divs = 20, i = divs; i > 0; i--) {
                 bufferCtx.lineWidth = diameter * i / divs;
                 bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], i / divs)).join(",")})`;
                 bufferCtx.stroke();
@@ -217,8 +217,51 @@ function callback(time) {
             
             ctx.globalAlpha *= 0.7;
             ctx.drawImage(bufferCanvas, 0, 0);
+
+            // reverse arrows
+            if (obj[6] > 1) {
+                const slideN = Math.max(Math.floor((time - obj[2]) / obj.at(-2)), 0);
+                const reverse1 = slideN < obj[6] - 1;
+                const reverse2 = slideN < obj[6] - 2;
+
+                const img = skin["reversearrow"];
+                const size = [osuToPixelsX(radius) / 64 * img.width, osuToPixelsY(radius) / 64 * img.height];
+
+                const _drawArrow = (point, flip, startTime) => {
+                    const arrowScale = 1 + (1 - easeOut(mod((time - startTime) / obj.at(-3), 1))) * 0.3;
+                    ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
+                    ctx.save();
+                    ctx.translate(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
+                    ctx.rotate(point[2] + (flip ? Math.PI : 0));
+                    ctx.drawImage(img, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
+                    ctx.restore();
+                };
+
+                // arrow at the end (assuming 1 slide) of the slider
+                if ((slideN % 2 == 0 && reverse1) || (slideN % 2 == 1 && reverse2)) {
+                    _drawArrow(getFollowPosition(obj, obj[7]), true, obj[2] + obj.at(-2) * (slideN == 0 || slideN % 2 ? slideN : slideN - 1) + (slideN == 0 ? -preempt + fadein / 2 : 0));
+                }
+                // arrow at the start (assuming 1 slide) of the slider
+                if ((slideN % 2 == 0 && reverse2) || (slideN % 2 == 1 && reverse1)) {
+                    _drawArrow(getFollowPosition(obj, 0), false, obj[2] + obj.at(-2) * (slideN % 2 ? slideN - 1 : slideN));
+                }
+
+                // slider arrows expanding and fading out after being tapped
+                let i = slideN;
+                while (i > 0 && time - (obj[2] + obj.at(-2) * i) < fadeout) {
+                    const arrowScale = 1 + easeOut(clamp(0, 1 - (obj[2] + obj.at(-2) * i + fadeout - time) / fadeout, 1)) * 0.25;
+                    ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * slideN + fadeout - time) / fadeout, 1);
+                    const point = getFollowPosition(obj, obj[7] * (i % 2))
+                    ctx.save();
+                    ctx.translate(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
+                    ctx.rotate(point[2] + (i % 2 ? Math.PI : 0));
+                    ctx.drawImage(img, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
+                    ctx.restore();
+                    i--;
+                }
+            }
         }
-        if (obj[3] & 1 || obj[3] & 2) {    // hitcircle
+        if (obj[3] & 1 || obj[3] & 2) {     // hitcircle
 
             const tinted = skin["hitcircle"][obj.at(-1)[1] % skin.ini.combos.length];
             const overlay = skin["hitcircleoverlay"];
@@ -262,6 +305,9 @@ function callback(time) {
 
                 ctx.drawImage(letter, x, y, w, h);
             }
+        }
+        else if (obj[3] && 8) {             // spinner
+
         }
 
         index--;
@@ -652,6 +698,7 @@ const parseBeatmap = (text) => {
                 tpIndex++;
             }
 
+            obj.push(result.TimingPoints[uninheritedTPIndex][1]);
             obj.push(obj[7] / (result.Difficulty.SliderMultiplier * 100 * (inheritedTPIndex == -1 ? 1 : -100 / result.TimingPoints[inheritedTPIndex][1])) * result.TimingPoints[uninheritedTPIndex][1]);
             result.HitObjects.splice(i, 1);
             sliders.push(obj);
