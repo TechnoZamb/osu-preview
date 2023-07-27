@@ -95,7 +95,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 0.569//41.083;
+    player.currentTime = 0.274//41.083;
 }
 
 function callback(time) {
@@ -173,7 +173,7 @@ function callback(time) {
                 snake = clamp(0, (time - (obj[2] - preempt)) / fadein, 0.5) * 2;
             }
             else {
-                if (time < obj[2] + obj.at(-2) * obj[6]) {
+                if (time < obj[2] + obj.at(-2) * obj[6] + 200) {
                     followQueue.push(obj);
                 }
                 ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * obj[6] + fadeout - time) / fadeout, 1);
@@ -248,8 +248,8 @@ function callback(time) {
 
                 // slider arrows expanding and fading out after being tapped
                 let i = slideN;
-                while (i > 0 && time - (obj[2] + obj.at(-2) * i) < fadeout) {
-                    const arrowScale = 1 + easeOut(clamp(0, 1 - (obj[2] + obj.at(-2) * i + fadeout - time) / fadeout, 1)) * 0.25;
+                while (i > 0 && i < obj[6] && time - (obj[2] + obj.at(-2) * i) < fadeout) {
+                    const arrowScale = 1 + easeOut(clamp(0, 1 - (obj[2] + obj.at(-2) * i + fadeout - time) / fadeout, 1)) * 0.35;
                     ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * slideN + fadeout - time) / fadeout, 1);
                     const point = getFollowPosition(obj, obj[7] * (i % 2))
                     ctx.save();
@@ -328,30 +328,46 @@ function callback(time) {
     // draw slider elements
     ctx.globalAlpha = 1;
     for (let obj of followQueue) {
-        const slideN = (time - obj[2]) / obj.at(-2);
-        const ratio = (Math.floor(slideN) % 2) ? (1 - (slideN % 1)) : (slideN % 1);
+        const endTime = obj[2] + obj.at(-2) * obj[6];
 
-        const followPos = getFollowPosition(obj, ratio * obj[7]);
+        if (time < endTime) {
+            const slideN = (time - obj[2]) / obj.at(-2);
+            const ratio = (Math.floor(slideN) % 2) ? (1 - (slideN % 1)) : (slideN % 1);
+            const followPos = getFollowPosition(obj, ratio * obj[7]);
 
-        const scaleX = (parseInt(skin.ini.General.SliderBallFlip) && Math.floor(slideN) % 2) ? -1 : 1;
-        const scaleY = followPos[3] ? -1 : 1;
+            // follow circle
+            const followCircle = skin["sliderfollowcircle"];
+            let followScale = 0.5 + clamp(0, (time - obj[2]) / 150, 1) * 0.5;
+            if (followScale >= 1) {
+                // follow circle expands when touching slider ticks
+                followScale = 1 + (1 - ((time - obj[2]) / obj.at(-3)) % 1) * 0.1;
+            }
+            let size = [osuToPixelsX(radius) / 64 * followCircle.width * followScale, osuToPixelsY(radius) / 64 * followCircle.height * followScale];
+            ctx.globalAlpha = clamp(0, (time - obj[2]) / 60, 1);
+            ctx.drawImage(followCircle, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
-        // follow circle
-        const followCircle = skin["sliderfollowcircle"];
-        var size = [osuToPixelsX(radius) / 64 * followCircle.width, osuToPixelsY(radius) / 64 * followCircle.height];
-        ctx.drawImage(followCircle, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
-
-        // slider ball
-        const sliderbFrame = parseInt((time - obj[2]) / 16.6);
-        const sliderb = skin.sliderb[sliderbFrame % skin.sliderb.length][parseInt(skin.ini.General.AllowSliderBallTint) ? obj.at(-1)[1] % skin.ini.combos.length : 0];
-
-        size = [osuToPixelsX(radius) / 64 * sliderb.width, osuToPixelsY(radius) / 64 * sliderb.height];
-        ctx.save();
-        ctx.translate(osuToPixelsX(followPos[0]) + margins[0], osuToPixelsY(followPos[1]) + margins[1]);
-        ctx.rotate(followPos[2]);
-        ctx.scale(scaleX, scaleY);
-        ctx.drawImage(sliderb, -size[0] / 2, -size[1] / 2, size[0], size[1]);
-        ctx.restore();
+            // slider ball
+            const sliderbFrame = parseInt((time - obj[2]) / 16.6);
+            const sliderb = skin.sliderb[sliderbFrame % skin.sliderb.length][parseInt(skin.ini.General.AllowSliderBallTint) ? obj.at(-1)[1] % skin.ini.combos.length : 0];
+            const flipX = (parseInt(skin.ini.General.SliderBallFlip) && Math.floor(slideN) % 2) ? -1 : 1;
+            const flipY = followPos[3] ? -1 : 1;
+            size = [osuToPixelsX(radius) / 64 * sliderb.width, osuToPixelsY(radius) / 64 * sliderb.height];
+            ctx.save();
+            ctx.translate(osuToPixelsX(followPos[0]) + margins[0], osuToPixelsY(followPos[1]) + margins[1]);
+            ctx.rotate(followPos[2]);
+            ctx.scale(flipX, flipY);
+            ctx.drawImage(sliderb, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+            ctx.restore();
+        }
+        else {
+            // follow circle
+            const followCircle = skin["sliderfollowcircle"];
+            const followPos = getFollowPosition(obj, obj[6] % 2 ? obj[7] : 0);
+            const scale = 1 - clamp(0, easeOut((time - endTime) / 150) * 0.2, 0.2);
+            const size = [osuToPixelsX(radius) / 64 * followCircle.width * scale, osuToPixelsY(radius) / 64 * followCircle.height * scale];
+            ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * obj[6] - time + 200) / 200, 1);
+            ctx.drawImage(followCircle, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+        }
     }
 
     
