@@ -5,11 +5,12 @@ const DEFAULT_SKIN_PATH = "defaultskin/";
 const requiredFiles = {
     "approachcircle": { tinted: true },
     "hitcircle": { tinted: true },
-    "hitcircleoverlay": { tinted: false },
-    "default-": { tinted: false, enumerable: 9 },
+    "hitcircleoverlay": { },
+    "default-": { enumerable: 9 },
     "sliderb" : { tinted: true, enumerable: -1 },
-    "sliderfollowcircle": { tinted: false },
-    "reversearrow": { tinted: false },
+    "sliderfollowcircle": { },
+    "reversearrow": { },
+    "sliderscorepoint": { }
 };
 const defaultValues = {            // for skin.ini
     General: {

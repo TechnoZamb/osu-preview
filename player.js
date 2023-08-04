@@ -15,6 +15,7 @@ export class MusicPlayer {
             file = await fetch(file).then(r => r.blob());        
         
         player.audioContext = new AudioContext();
+        player.audioContext.suspend();
         const buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
         const [ forwards, backwards ] = WAVBuilder.build(buffer);
         
@@ -31,6 +32,7 @@ export class MusicPlayer {
     }
 
     play() {
+        player.audioContext.resume();
         if (this.playbackRate >= 0)
             this.forwards.play();
         else
@@ -38,6 +40,7 @@ export class MusicPlayer {
     }
 
     pause() {
+        player.audioContext.suspend();
         this.forwards.pause();
         this.backwards.pause();
     }
@@ -64,6 +67,7 @@ export class MusicPlayer {
             }
         }
         else {
+            player.audioContext.suspend();
             if (!this.forwards.paused)
                 this.forwards.playbackRate = 0;
             else

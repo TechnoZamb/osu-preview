@@ -3,8 +3,8 @@ import { ProgressBar } from "./progress.js";
 import { parseSkin, asyncLoadImages } from "./skin.js";
 import { mod, clamp, lerp, range, rgb } from "./functions.js";
 
-const mapFolder = 0 ? "songs/1712395 Ashrount - AureoLe ~for Triumph~/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
-const diff = 0 ? "Ashrount - AureoLe ~for Triumph~ (R3m) [FINAL].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasasasasa].osu";
+const mapFolder = 0 ? "songs/889855 GALNERYUS - RAISE MY SWORD/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
+const diff = 0 ? "GALNERYUS - RAISE MY SWORD (Sotarks) [A THOUSAND FLAMES].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasasasasa].osu";
 const skinName = 1 ? "- YUGEN -" : "_Kynan-2017-08-10";
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
@@ -22,7 +22,8 @@ var beatmap, skin;
 var bg;
 var preempt, fadein, fadeout = 233;
 var radius;
-var time2 = 0;
+var prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
+var sliderGradientDivisions = 20;
 
 var cursorPos;
 var bgdim = 1;
@@ -80,7 +81,7 @@ window.onload = async (e) => {
     }
 
     bg = await asyncLoadImages("b/leah miku.jpg");
-    skin = await parseSkin("skins/" + skinName, mapFolder, beatmap, false);
+    skin = await parseSkin("skins/" + skinName, mapFolder, beatmap, true);
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
         bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
@@ -95,14 +96,23 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 0.274//41.083;
+    player.currentTime = 3.499//41.083;
+
+    var buffer = await fetch("skins/" + skinName + "/normal-hitclap.wav");
+    buffer = await player.audioContext.decodeAudioData(await buffer.arrayBuffer());
+    let source = player.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(player.audioContext.destination);
+    source.start(0.569);
+    source = player.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(player.audioContext.destination);
+    source.start(1.569);
 }
 
 function callback(time) {
-    //console.log(1000 / (performance.now() - time2));
-    time2 = performance.now();
-
     ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // draw background
@@ -209,7 +219,7 @@ function callback(time) {
 
             bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.globalCompositeOperation = "source-over";
-            for (let divs = 20, i = divs; i > 0; i--) {
+            for (let divs = sliderGradientDivisions, i = divs; i > 0; i--) {
                 bufferCtx.lineWidth = diameter * i / divs;
                 bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], i / divs)).join(",")})`;
                 bufferCtx.stroke();
@@ -218,14 +228,15 @@ function callback(time) {
             ctx.globalAlpha *= 0.7;
             ctx.drawImage(bufferCanvas, 0, 0);
 
+            const slideN = Math.max(Math.floor((time - obj[2]) / obj.at(-2)), 0);
+
             // reverse arrows
             if (obj[6] > 1) {
-                const slideN = Math.max(Math.floor((time - obj[2]) / obj.at(-2)), 0);
                 const reverse1 = slideN < obj[6] - 1;
                 const reverse2 = slideN < obj[6] - 2;
 
-                const img = skin["reversearrow"];
-                const size = [osuToPixelsX(radius) / 64 * img.width, osuToPixelsY(radius) / 64 * img.height];
+                const sprite = skin["reversearrow"];
+                const size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
 
                 const _drawArrow = (point, flip, startTime) => {
                     const arrowScale = 1 + (1 - easeOut(mod((time - startTime) / obj.at(-3), 1))) * 0.3;
@@ -233,7 +244,7 @@ function callback(time) {
                     ctx.save();
                     ctx.translate(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
                     ctx.rotate(point[2] + (flip ? Math.PI : 0));
-                    ctx.drawImage(img, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
+                    ctx.drawImage(sprite, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
                     ctx.restore();
                 };
 
@@ -255,16 +266,44 @@ function callback(time) {
                     ctx.save();
                     ctx.translate(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
                     ctx.rotate(point[2] + (i % 2 ? Math.PI : 0));
-                    ctx.drawImage(img, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
+                    ctx.drawImage(sprite, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
                     ctx.restore();
                     i--;
                 }
             }
+
+            // slider ticks
+            const ticks = getSliderTicks(obj);
+            var drawn = 0;
+            var n = slideN;
+
+            while (n < obj[6]) {
+                var firstTickTime = n == 0 ? (obj[2] - fadein) : (obj[2] + obj.at(-2) * n - 280 + (n % 2 ? obj.at(-2) - ticks.at(-1) : ticks[0]) / 2);
+                
+                for (let i = 0; i < ticks.length; i++) {
+                    const tick = ticks[i];
+
+                    if (time < obj[2] + obj.at(-2) * n + (n % 2 ? obj.at(-2) - ticks[ticks.length - i - 1] : tick)) {
+                        const sprite = skin["sliderscorepoint"];
+                        const followPos = getFollowPosition(obj, ((n > 0 && n % 2) ? ticks[ticks.length - i - 1] : tick) / obj.at(-2) * obj[7]);
+                        const temp = time - firstTickTime - tick / 2;
+                        const scale = temp < 140 ? (0.5 + clamp(0, temp / 140, 1) * 0.7) : (1 + (1 - clamp(0, (temp - 140) / 140, 1)) * 0.2);
+                        const size = [osuToPixelsX(radius) * 2 / 128 * sprite.width * scale, osuToPixelsY(radius) * 2 / 128 * sprite.height * scale];
+                        ctx.globalAlpha = clamp(0, temp / 140, 1);
+                        ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsX(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+                        
+                        drawn++;
+                    }
+                }
+
+                if (drawn != 0) break;
+                else n++;
+            }
         }
         if (obj[3] & 1 || obj[3] & 2) {     // hitcircle
 
-            const tinted = skin["hitcircle"][obj.at(-1)[1] % skin.ini.combos.length];
-            const overlay = skin["hitcircleoverlay"];
+            const circleSprite = skin["hitcircle"][obj.at(-1)[1] % skin.ini.combos.length];
+            const overlaySprite = skin["hitcircleoverlay"];
             var circleScale;
 
             if (time <= obj[2]) {
@@ -277,10 +316,10 @@ function callback(time) {
                 circleScale = 1 + easeOut(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.25;
             }
 
-            var size = [osuToPixelsX(radius) * 2 / 128 * tinted.width * circleScale, osuToPixelsY(radius) * 2 / 128 * tinted.height * circleScale];
-            ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
-            size = [osuToPixelsX(radius) * 2 / 128 * overlay.width * circleScale, osuToPixelsY(radius) * 2 / 128 * overlay.height * circleScale];
-            ctx.drawImage(overlay, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            var size = [osuToPixelsX(radius) * 2 / 128 * circleSprite.width * circleScale, osuToPixelsY(radius) * 2 / 128 * circleSprite.height * circleScale];
+            ctx.drawImage(circleSprite, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            size = [osuToPixelsX(radius) * 2 / 128 * overlaySprite.width * circleScale, osuToPixelsY(radius) * 2 / 128 * overlaySprite.height * circleScale];
+            ctx.drawImage(overlaySprite, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsY(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // draw combo number
             if (time > obj[2]) {
@@ -294,16 +333,16 @@ function callback(time) {
             const totalWidth = width * combo.length - skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2* (combo.length - 1);
             const numberScale = radius / 80 / 512 * fieldSize[0];
             for (let i = 0; i < combo.length; i++) {
-                const letter = skin["default-" + combo[i]];
+                const sprite = skin["default-" + combo[i]];
 
                 const [ x, y, w, h ] = [
                     osuToPixelsX(obj[0]) + margins[0] + (-totalWidth / 2 + (width - skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2) * i) * numberScale,
                     osuToPixelsY(obj[1]) + margins[1] - height / 2 * numberScale,
-                    width * (letter.naturalWidth / skin["default-" + combo[0]].naturalWidth) * numberScale,
-                    height * (letter.naturalHeight / skin["default-" + combo[0]].naturalHeight) * numberScale
+                    width * (sprite.naturalWidth / skin["default-" + combo[0]].naturalWidth) * numberScale,
+                    height * (sprite.naturalHeight / skin["default-" + combo[0]].naturalHeight) * numberScale
                 ];
 
-                ctx.drawImage(letter, x, y, w, h);
+                ctx.drawImage(sprite, x, y, w, h);
             }
         }
         else if (obj[3] && 8) {             // spinner
@@ -325,8 +364,7 @@ function callback(time) {
         ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsX(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
     }
 
-    // draw slider elements
-    ctx.globalAlpha = 1;
+    // draw slider elements with higher priority
     for (let obj of followQueue) {
         const endTime = obj[2] + obj.at(-2) * obj[6];
 
@@ -336,15 +374,25 @@ function callback(time) {
             const followPos = getFollowPosition(obj, ratio * obj[7]);
 
             // follow circle
-            const followCircle = skin["sliderfollowcircle"];
-            let followScale = 0.5 + clamp(0, (time - obj[2]) / 150, 1) * 0.5;
+            const sprite = skin["sliderfollowcircle"];
+            let followScale = 0.5 + easeOut(clamp(0, (time - obj[2]) / 150, 1)) * 0.5;
             if (followScale >= 1) {
                 // follow circle expands when touching slider ticks
-                followScale = 1 + (1 - ((time - obj[2]) / obj.at(-3)) % 1) * 0.1;
+                const slideN = Math.max(Math.floor((time - obj[2]) / obj.at(-2)), 0);
+                if (slideN % 2) {
+                    const ticks = [...getSliderTicks(obj), obj.at(-2)];
+                    const lastTouchedTick = ticks.find(x => obj.at(-2) - x < time - (obj[2] + obj.at(-2) * slideN)) ?? ticks[0];
+                    followScale = 1 + (1 - clamp(0, (time - (obj[2] + obj.at(-2) * slideN) - obj.at(-2) + lastTouchedTick) / 200, 1)) * 0.1;
+                }
+                else {
+                    const ticks = [0, ...getSliderTicks(obj)];
+                    const lastTouchedTick = ticks[ticks.findIndex(x => x >= time - (obj[2] + obj.at(-2) * slideN)) - 1] ?? ticks.at(-1);
+                    followScale = 1 + (1 - clamp(0, (time - (obj[2] + obj.at(-2) * slideN) - lastTouchedTick) / 200, 1)) * 0.1;
+                }
             }
-            let size = [osuToPixelsX(radius) / 64 * followCircle.width * followScale, osuToPixelsY(radius) / 64 * followCircle.height * followScale];
+            let size = [osuToPixelsX(radius) / 64 * sprite.width * followScale, osuToPixelsY(radius) / 64 * sprite.height * followScale];
             ctx.globalAlpha = clamp(0, (time - obj[2]) / 60, 1);
-            ctx.drawImage(followCircle, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // slider ball
             const sliderbFrame = parseInt((time - obj[2]) / 16.6);
@@ -361,23 +409,65 @@ function callback(time) {
         }
         else {
             // follow circle
-            const followCircle = skin["sliderfollowcircle"];
+            const sprite = skin["sliderfollowcircle"];
             const followPos = getFollowPosition(obj, obj[6] % 2 ? obj[7] : 0);
             const scale = 1 - clamp(0, easeOut((time - endTime) / 150) * 0.2, 0.2);
-            const size = [osuToPixelsX(radius) / 64 * followCircle.width * scale, osuToPixelsY(radius) / 64 * followCircle.height * scale];
+            const size = [osuToPixelsX(radius) / 64 * sprite.width * scale, osuToPixelsY(radius) / 64 * sprite.height * scale];
             ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * obj[6] - time + 200) / 200, 1);
-            ctx.drawImage(followCircle, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
         }
     }
 
-    
-    ctx.globalAlpha = 1;
-    
-    ctx.fillStyle = "rgb(255,0,0,0.5)";
-    ctx.globalCompositeOperation = "destination-out"
-    var curSize = 100;
-    if (cursorPos) {
-        //ctx.fillRect(cursorPos[0] - curSize / 2 - canvas.offsetLeft, cursorPos[1] - curSize / 2 - canvas.offsetTop, curSize, curSize)
+    adjustSliderGradientDivisions();
+}
+
+const adjustSliderGradientDivisions = () => {
+    /*const deltaT = performance.now() - prevTime;
+        if (prevTime != 0) {
+            if (avgTimes.length < 100) {
+                avgTimes.push(deltaT);
+                if (avgTimes.length == 100) {
+                    avgTime = avgTimes.reduce((x, y) => x + y, 0) / 100;
+                }
+            }
+            if (avgTime) {
+                if (sliderGradientDivisions < 20 && deltaT < avgTime - 0.1) {
+                    sliderGradientDivisions++;
+                }
+                if (sliderGradientDivisions > 2 && deltaT > avgTime + 1) {
+                    sliderGradientDivisions--;
+                }
+                document.querySelector("#fps").innerHTML = Math.round(1000 / deltaT);
+            }
+        }
+        console.log(sliderGradientDivisions)
+        prevTime += deltaT;*/
+
+    // adjust slider gradient divison number (n.1 performance killer) to boost fps
+    framesN++;
+    const now = performance.now();
+    if (prevTime == -1) {
+        prevTime = now;
+    }
+    else {
+        if (!avgFPS) {
+            avgFrames.push(now - prevTime);
+            prevTime = now;
+            if (avgFrames.length > 99) {
+                avgFPS = 1000 / avgFrames.sort()[avgFrames.length / 2];
+            }
+        }
+        else if (now - prevTime > 100) {
+            const fps = framesN / (now - prevTime) * 1000;
+            if (sliderGradientDivisions < 20 && fps > avgFPS - 10) {
+                sliderGradientDivisions++;
+            }
+            if (sliderGradientDivisions > 6 && fps < avgFPS - 20) {
+                sliderGradientDivisions--;
+            }
+            prevTime = now;
+            framesN = 0;
+        }
     }
 }
 
@@ -574,24 +664,32 @@ const drawSlider = (obj, length, draw = true) => {
 }
 const getFollowPosition = (obj, length) => drawSlider(obj, length, false);
 
+const getSliderTicks = (obj) => {
+    var ticks = [];
+    for (let i = obj.at(-3) / beatmap.Difficulty.SliderTickRate; i < obj.at(-2); i += obj.at(-3) / beatmap.Difficulty.SliderTickRate) {
+        if (i < obj.at(-2) - obj.at(-3) / 4 - 0.001) ticks.push(i);
+    }
+    return ticks;
+}
+
 const bezierPoints = (points, start = 0, end = 1) => {
     const arr = [], lengths = [];
 
-    const _bezierPoints = (start, end) => {
+    const _bezierPoints = (start, end, minDivs) => {
         const startP = bezierAt(points, start);
         const endP = bezierAt(points, end);
         const length = Math.pow(startP[0] - endP[0], 2) + Math.pow(startP[1] - endP[1], 2);
 
-        if (length > bezierSegmentMaxLengthSqrd) {
-            _bezierPoints(start, (start + end) / 2);
-            _bezierPoints((start + end) / 2, end);
+        if (minDivs > 0 || length > bezierSegmentMaxLengthSqrd) {
+            _bezierPoints(start, (start + end) / 2, minDivs - 1);
+            _bezierPoints((start + end) / 2, end, minDivs - 1);
         }
         else {
             arr.push(endP);
             lengths.push((lengths.at(-1) ?? 0) + Math.sqrt(length));
         }
     };
-    _bezierPoints(start, end);
+    _bezierPoints(start, end, 2);
 
     return [arr, lengths];
 }
@@ -652,6 +750,10 @@ const parseBeatmap = (text) => {
             return null;
         }
         else switch (currCategory) {
+            case "Difficulty":
+                var keyval = line.trim().split(":");
+                result[currCategory][keyval[0].trim()] = parseFloat(keyval[1].trim());
+                break;
             case "HitObjects": {
                 var vals = line.trim().split(",");
                 for (let i = 0; i < 5; i++) {
