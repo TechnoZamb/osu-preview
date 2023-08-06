@@ -8,6 +8,10 @@ const requiredFiles = {
     "hitcircleoverlay": { },
     "default-": { enumerable: 9 },
     "sliderb" : { tinted: true, enumerable: -1 },
+    "sliderstartcircle": { tinted: true },
+    "sliderstartcircleoverlay": { tinted: false },
+    "sliderendcircle": { tinted: true },
+    "sliderendcircleoverlay": { tinted: false },
     "sliderfollowcircle": { },
     "reversearrow": { },
     "sliderscorepoint": { }
@@ -84,7 +88,7 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
     }
 
     // try parse map colors
-    if (loadBeatmapSkin && beatmapObj) {
+    if (loadBeatmapSkin && beatmapObj && beatmapObj.Colours) {
         const tempColors = [];
         for (let i = 1; i < 9; i++) {
             if (beatmapObj.Colours["Combo" + i])
@@ -112,52 +116,36 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
     //      1: default sd
     //      0: fail
 
-    const imgBaseNames = [], imgsURLs = [], stages = [];
     const imgs = [];
 
     for (let [key, val] of Object.entries(requiredFiles)) {
         if (val.enumerable) {
-            if (val.enumerable == -1) {
-                if (loadBeatmapSkin) {
-
-                }
-            }
-            else {
+            if (val.enumerable != -1) {
                 for (let i = 0; i <= val.enumerable; i++) {
                     if (loadBeatmapSkin) {
-                        imgsURLs.push(urlJoin(beatmapPath, key + i + ".png"));
-                        stages.push(5);
                         imgs.push({
                             url: urlJoin(beatmapPath, key + i + ".png"), stage: 5, isHD: false, baseName: key + i, baseBaseName: key
                         });
                     }
                     else {
-                        imgsURLs.push(urlJoin(skinPath, key + i + "@2x.png"));
-                        stages.push(4);
                         imgs.push({
                             url: urlJoin(skinPath, key + i + "@2x.png"), stage: 4, isHD: true, baseName: key + i, baseBaseName: key
                         });
                     }
-                    imgBaseNames.push(key + i);
                 }
             }
         }
         else {
             if (loadBeatmapSkin) {
-                imgsURLs.push(urlJoin(beatmapPath, key + ".png"));
-                stages.push(5);
                 imgs.push({
                     url: urlJoin(beatmapPath, key + ".png"), stage: 5, isHD: false, baseName: key, baseBaseName: key
                 });
             }
             else {
-                imgsURLs.push(urlJoin(skinPath, key + "@2x.png"));
-                stages.push(4);
                 imgs.push({
                     url: urlJoin(skinPath, key + "@2x.png"), stage: 4, isHD: true, baseName: key, baseBaseName: key
                 });
             }
-            imgBaseNames.push(key);
         }
     }
 
@@ -169,6 +157,7 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
 
         // if img loaded correctly
         if (obj.img.complete && obj.img.naturalWidth !== 0) {
+            obj.ok = true;
             completed++;
         }
         else {
@@ -199,7 +188,13 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
                     break;
                 }
                 default: {
-                    throw new Error();
+                    if (obj.baseName == "sliderstartcircle" || obj.baseName == "sliderstartcircleoverlay"
+                        || obj.baseName == "sliderendcircle" || obj.baseName == "sliderendcircleoverlay") {
+                        completed++;
+                    }
+                    else {
+                        throw new Error();
+                    }
                 }
             }
 
@@ -207,6 +202,7 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
         }
     }
 
+    //#region slider balls
     const sliderbs = [];
     var index = 0;
     var sliderb = { baseBaseName: "sliderb", baseName: "sliderb0", stage: (loadBeatmapSkin ? 10 : 8) };
@@ -295,6 +291,33 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
     if ([1,2,5,6,9].includes(sliderbs[0].stage)) {
         sliderbs[0].baseName = "sliderb";
     }
+    else if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
+        let url;
+        imgs.push({
+            url: (url = urlJoin(DEFAULT_SKIN_PATH, "sliderb-nd.png")), stage: 1, isHD: false, baseName: "sliderb-nd", baseBaseName: "sliderb-nd", img: await asyncLoadImages(url)
+        },
+        {
+            url: (url = urlJoin(DEFAULT_SKIN_PATH, "sliderb-spec.png")), stage: 1, isHD: false, baseName: "sliderb-spec", baseBaseName: "sliderb-spec", img: await asyncLoadImages(url)
+        });
+    }
+    //#endregion
+
+    for (let x of ["sliderstartcircle", "sliderendcircle"]) {
+        let [circle, overlay] = [imgs.find(y => y.baseName == x), imgs.find(y => y.baseName == x + "overlay")];
+
+        if (circle.ok) {
+            if (!overlay.ok) {
+                overlay.img = new Image();
+                overlay.isHD = false;
+            }
+        }
+        else {
+            circle.img = imgs.find(x => x.baseName == "hitcircle").img;
+            overlay.img = imgs.find(x => x.baseName == "hitcircleoverlay").img;
+            circle.isHD = false;
+            overlay.isHD = false;
+        }
+    }
 
     // loading complete
     var result = { ini: ini };
@@ -305,7 +328,7 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
             obj.img.height /= 2;
         }
 
-        if (requiredFiles[obj.baseBaseName].tinted) {
+        if (requiredFiles[obj.baseBaseName]?.tinted) {
             result[obj.baseName] = [];
             for (let combo of ini.combos) {
                 result[obj.baseName].push(tintImage(obj.img, combo));
@@ -314,6 +337,11 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
         else {
             result[obj.baseName] = obj.img;
         }
+    }
+
+    if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
+        result.isDefaultSliderBall = true;
+        result["sliderb-nd"] = tintImage(result["sliderb-nd"], [0, 0, 0]);
     }
 
     for (let i = 0; i < sliderbs.length; i++) {
@@ -391,6 +419,21 @@ const buffer = document.createElement("canvas");
 const context = buffer.getContext("2d", { willReadFrequently: true });
 
 function tintImage(img, color) {
+    buffer.width = img.width; buffer.height = img.height;
+    context.drawImage(img, 0, 0, img.width, img.height);
+    const data = context.getImageData(0, 0, img.width, img.height);
+
+    for (let i = 0; i < data.data.length; i += 4) {
+        data.data[i] *= color[0] / 255;
+        data.data[i + 1] *= color[1] / 255;
+        data.data[i + 2] *= color[2] / 255;
+    }
+
+    context.putImageData(data, 0, 0);
+    return Object.assign(new Image(), { src: buffer.toDataURL() });
+}
+
+function sliderSpec(img) {
     buffer.width = img.width; buffer.height = img.height;
     context.drawImage(img, 0, 0, img.width, img.height);
     const data = context.getImageData(0, 0, img.width, img.height);

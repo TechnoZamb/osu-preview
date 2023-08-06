@@ -5,7 +5,7 @@ import { mod, clamp, lerp, range, rgb } from "./functions.js";
 
 const mapFolder = 0 ? "songs/889855 GALNERYUS - RAISE MY SWORD/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
 const diff = 0 ? "GALNERYUS - RAISE MY SWORD (Sotarks) [A THOUSAND FLAMES].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasasasasa].osu";
-const skinName = 1 ? "- YUGEN -" : "_Kynan-2017-08-10";
+const skinName = 0 ? "- YUGEN -" : "_Kynan-2017-08-10";
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 var bezierSegmentMaxLengthSqrd;             // in osu pixels, squared
@@ -96,7 +96,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 3.499//41.083;
+    player.currentTime = 2.5//41.072;
 
     var buffer = await fetch("skins/" + skinName + "/normal-hitclap.wav");
     buffer = await player.audioContext.decodeAudioData(await buffer.arrayBuffer());
@@ -230,7 +230,48 @@ function callback(time) {
 
             const slideN = Math.max(Math.floor((time - obj[2]) / obj.at(-2)), 0);
 
-            // reverse arrows
+            //#region slider end
+            let circleSprite = skin["sliderendcircle"][obj.at(-1)[1] % skin.ini.combos.length];
+            let overlaySprite = skin["sliderendcircleoverlay"];
+            
+            const _drawEnd = (sprite, position, startTime, scale) => {
+                const size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
+                const scale2 = 1 + (scale ? (1 - easeOut(mod((time - startTime) / obj.at(-3), 1))) * 0.3 : 0);
+                ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
+                ctx.drawImage(sprite, osuToPixelsX(position[0]) + margins[0] - size[0] / 2 * scale2, osuToPixelsY(position[1]) + margins[1] - size[1] / 2 * scale2, size[0] * scale2, size[1] * scale2);
+            };
+
+            // slider end at the end of the slider
+            if (slideN < obj[6] && slideN % 2 == 0 || slideN < obj[6] - 1) {
+                let position = getFollowPosition(obj, obj[7]);
+                let startTime = obj[2] + obj.at(-2) * (slideN == 0 || slideN % 2 ? slideN : slideN - 1) + (slideN == 0 ? -preempt + fadein / 2 : 0);
+                _drawEnd(circleSprite, position, startTime, false);
+                _drawEnd(overlaySprite, position, startTime, false);
+            }
+            // slider end at the start of the slider (when slides > 1)
+            if (slideN < obj[6] && slideN % 2 == 1 || slideN < obj[6] - 1) {
+                let position = getFollowPosition(obj, 0);
+                let startTime = obj[2] + obj.at(-2) * (slideN % 2 ? slideN - 1 : slideN);
+                _drawEnd(circleSprite, position, startTime, false);
+                _drawEnd(overlaySprite, position, startTime, false);
+            }
+
+            // slider ends expanding and fading out after being tapped
+            let i = slideN;
+            while (i > 0 && i <= obj[6] && time - (obj[2] + obj.at(-2) * i) < fadeout) {
+                const position = getFollowPosition(obj, obj[7] * (i % 2));
+                const scale = 1 + easeOut(clamp(0, 1 - (obj[2] + obj.at(-2) * i + fadeout - time) / fadeout, 1)) * 0.35;
+                ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * slideN + fadeout - time) / fadeout, 1);
+
+                let size = [osuToPixelsX(radius) / 64 * circleSprite.width, osuToPixelsY(radius) / 64 * circleSprite.height];
+                ctx.drawImage(circleSprite, osuToPixelsX(position[0]) + margins[0] - size[0] / 2 * scale, osuToPixelsY(position[1]) + margins[1] - size[1] / 2 * scale, size[0] * scale, size[1] * scale);
+                    size = [osuToPixelsX(radius) / 64 * overlaySprite.width, osuToPixelsY(radius) / 64 * overlaySprite.height];
+                ctx.drawImage(overlaySprite, osuToPixelsX(position[0]) + margins[0] - size[0] / 2 * scale, osuToPixelsY(position[1]) + margins[1] - size[1] / 2 * scale, size[0] * scale, size[1] * scale);
+                i--;
+            }
+            //#endregion
+
+            //#region reverse arrows
             if (obj[6] > 1) {
                 const reverse1 = slideN < obj[6] - 1;
                 const reverse2 = slideN < obj[6] - 2;
@@ -238,23 +279,23 @@ function callback(time) {
                 const sprite = skin["reversearrow"];
                 const size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
 
-                const _drawArrow = (point, flip, startTime) => {
-                    const arrowScale = 1 + (1 - easeOut(mod((time - startTime) / obj.at(-3), 1))) * 0.3;
+                const _drawArrow = (position, startTime, flip) => {
+                    const scale = 1 + (1 - easeOut(mod((time - startTime) / obj.at(-3), 1))) * 0.3;
                     ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
                     ctx.save();
-                    ctx.translate(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
-                    ctx.rotate(point[2] + (flip ? Math.PI : 0));
-                    ctx.drawImage(sprite, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
+                    ctx.translate(osuToPixelsX(position[0]) + margins[0], osuToPixelsY(position[1]) + margins[1]);
+                    ctx.rotate(position[2] + (flip ? Math.PI : 0));
+                    ctx.drawImage(sprite, -size[0] / 2 * scale, -size[1] / 2 * scale, size[0] * scale, size[1] * scale);
                     ctx.restore();
                 };
 
                 // arrow at the end (assuming 1 slide) of the slider
                 if ((slideN % 2 == 0 && reverse1) || (slideN % 2 == 1 && reverse2)) {
-                    _drawArrow(getFollowPosition(obj, obj[7]), true, obj[2] + obj.at(-2) * (slideN == 0 || slideN % 2 ? slideN : slideN - 1) + (slideN == 0 ? -preempt + fadein / 2 : 0));
+                    _drawArrow(getFollowPosition(obj, obj[7]), obj[2] + obj.at(-2) * (slideN == 0 || slideN % 2 ? slideN : slideN - 1) + (slideN == 0 ? -preempt + fadein / 2 : 0), true);
                 }
                 // arrow at the start (assuming 1 slide) of the slider
                 if ((slideN % 2 == 0 && reverse2) || (slideN % 2 == 1 && reverse1)) {
-                    _drawArrow(getFollowPosition(obj, 0), false, obj[2] + obj.at(-2) * (slideN % 2 ? slideN - 1 : slideN));
+                    _drawArrow(getFollowPosition(obj, 0), obj[2] + obj.at(-2) * (slideN % 2 ? slideN - 1 : slideN), false);
                 }
 
                 // slider arrows expanding and fading out after being tapped
@@ -262,17 +303,18 @@ function callback(time) {
                 while (i > 0 && i < obj[6] && time - (obj[2] + obj.at(-2) * i) < fadeout) {
                     const arrowScale = 1 + easeOut(clamp(0, 1 - (obj[2] + obj.at(-2) * i + fadeout - time) / fadeout, 1)) * 0.35;
                     ctx.globalAlpha = clamp(0, (obj[2] + obj.at(-2) * slideN + fadeout - time) / fadeout, 1);
-                    const point = getFollowPosition(obj, obj[7] * (i % 2))
+                    const position = getFollowPosition(obj, obj[7] * (i % 2));
                     ctx.save();
-                    ctx.translate(osuToPixelsX(point[0]) + margins[0], osuToPixelsY(point[1]) + margins[1]);
-                    ctx.rotate(point[2] + (i % 2 ? Math.PI : 0));
+                    ctx.translate(osuToPixelsX(position[0]) + margins[0], osuToPixelsY(position[1]) + margins[1]);
+                    ctx.rotate(position[2] + (i % 2 ? Math.PI : 0));
                     ctx.drawImage(sprite, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
                     ctx.restore();
                     i--;
                 }
             }
+            //#endregion
 
-            // slider ticks
+            //#region slider ticks
             const ticks = getSliderTicks(obj);
             var drawn = 0;
             var n = slideN;
@@ -299,13 +341,21 @@ function callback(time) {
                 if (drawn != 0) break;
                 else n++;
             }
+            //#endregion
         }
         if (obj[3] & 1 || obj[3] & 2) {     // hitcircle
 
-            const circleSprite = skin["hitcircle"][obj.at(-1)[1] % skin.ini.combos.length];
-            const overlaySprite = skin["hitcircleoverlay"];
-            var circleScale;
+            let circleSprite, overlaySprite;
+            if (obj[3] & 2) {
+                circleSprite = skin["sliderstartcircle"][obj.at(-1)[1] % skin.ini.combos.length];
+                overlaySprite = skin["sliderstartcircleoverlay"];
+            }
+            else {
+                circleSprite = skin["hitcircle"][obj.at(-1)[1] % skin.ini.combos.length];
+                overlaySprite = skin["hitcircleoverlay"];
+            }
 
+            let circleScale;
             if (time <= obj[2]) {
                 approachQueue.push(obj);
                 ctx.globalAlpha = clamp(0, (time - (obj[2] - preempt)) / fadein, 1);
@@ -313,7 +363,7 @@ function callback(time) {
             }
             else {
                 ctx.globalAlpha = clamp(0, (obj[2] + fadeout - time) / fadeout, 1);
-                circleScale = 1 + easeOut(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.25;
+                circleScale = 1 + easeOut(clamp(0, 1 - (obj[2] + fadeout - time) / fadeout, 1)) * 0.35;
             }
 
             var size = [osuToPixelsX(radius) * 2 / 128 * circleSprite.width * circleScale, osuToPixelsY(radius) * 2 / 128 * circleSprite.height * circleScale];
@@ -374,7 +424,7 @@ function callback(time) {
             const followPos = getFollowPosition(obj, ratio * obj[7]);
 
             // follow circle
-            const sprite = skin["sliderfollowcircle"];
+            let sprite = skin["sliderfollowcircle"];
             let followScale = 0.5 + easeOut(clamp(0, (time - obj[2]) / 150, 1)) * 0.5;
             if (followScale >= 1) {
                 // follow circle expands when touching slider ticks
@@ -395,17 +445,31 @@ function callback(time) {
             ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // slider ball
+            ctx.globalAlpha = 1;
+            if (skin.isDefaultSliderBall) {
+                sprite = skin["sliderb-nd"];
+                size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
+                ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            }
             const sliderbFrame = parseInt((time - obj[2]) / 16.6);
-            const sliderb = skin.sliderb[sliderbFrame % skin.sliderb.length][parseInt(skin.ini.General.AllowSliderBallTint) ? obj.at(-1)[1] % skin.ini.combos.length : 0];
+            sprite = skin.sliderb[sliderbFrame % skin.sliderb.length][parseInt(skin.ini.General.AllowSliderBallTint) ? obj.at(-1)[1] % skin.ini.combos.length : 0];
             const flipX = (parseInt(skin.ini.General.SliderBallFlip) && Math.floor(slideN) % 2) ? -1 : 1;
             const flipY = followPos[3] ? -1 : 1;
-            size = [osuToPixelsX(radius) / 64 * sliderb.width, osuToPixelsY(radius) / 64 * sliderb.height];
+            size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
             ctx.save();
             ctx.translate(osuToPixelsX(followPos[0]) + margins[0], osuToPixelsY(followPos[1]) + margins[1]);
             ctx.rotate(followPos[2]);
             ctx.scale(flipX, flipY);
-            ctx.drawImage(sliderb, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+            ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
             ctx.restore();
+
+            if (skin.isDefaultSliderBall) {
+                sprite = skin["sliderb-spec"];
+                size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
+                ctx.globalCompositeOperation = "lighter"
+                ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+                ctx.globalCompositeOperation = "source-over";
+            }
         }
         else {
             // follow circle
@@ -472,6 +536,10 @@ const adjustSliderGradientDivisions = () => {
 }
 
 const drawSlider = (obj, length, draw = true) => {
+    if (draw && length == 0) {
+        return [obj[0], obj[1]];
+    }
+
     // linear
     if (obj[5][0] == "L") {
         var actualLength = 0, prevLength = 0;
