@@ -5,7 +5,7 @@ import { mod, clamp, lerp, range, rgb } from "./functions.js";
 
 const mapFolder = 0 ? "songs/889855 GALNERYUS - RAISE MY SWORD/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
 const diff = 0 ? "GALNERYUS - RAISE MY SWORD (Sotarks) [A THOUSAND FLAMES].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasasasasa].osu";
-const skinName = 0 ? "- YUGEN -" : "_Kynan-2017-08-10";
+const skinName = ["_Kynan-2017-08-10", "Rafis 2017-08-21", "- YUGEN -"][2];
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 var bezierSegmentMaxLengthSqrd;             // in osu pixels, squared
@@ -15,8 +15,8 @@ const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d");
 var bufferCanvas, bufferCtx;
 
-const canvasSize = [1600, 1000];
-const minMargin = 50;
+const canvasSize = [1024, 768];
+const minMargin = 112;
 var fieldSize = [], margins, bgSize;
 var beatmap, skin;
 var bg;
@@ -25,7 +25,6 @@ var radius;
 var prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
 var sliderGradientDivisions = 20;
 
-var cursorPos;
 var bgdim = 1;
 var drawGrid = true;
 
@@ -38,7 +37,7 @@ window.onload = async (e) => {
     document.querySelector("#play").addEventListener("click", e => player.play())
     document.querySelector("#pause").addEventListener("click", e => player.pause());
 
-    window.onmousemove = e => cursorPos = [e.clientX, e.clientY];
+    //window.onmousemove = e => cursorPos = [e.clientX, e.clientY];
     document.querySelector("input").oninput = (e) => bgdim = e.target.value;
     document.querySelector("input").value = bgdim;
 
@@ -96,7 +95,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 2.5//41.072;
+    player.currentTime = 0.369//41.072;
 
     var buffer = await fetch("skins/" + skinName + "/normal-hitclap.wav");
     buffer = await player.audioContext.decodeAudioData(await buffer.arrayBuffer());
@@ -111,6 +110,8 @@ window.onload = async (e) => {
 }
 
 function callback(time) {
+    document.querySelector("#fps").innerHTML = time;
+
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -161,15 +162,18 @@ function callback(time) {
     var index = beatmap.HitObjects.length - 1;
 
     var approachQueue = [], followQueue = [];
+
+    var merda = 0;
     
     while (index >= 0) {
         const obj = beatmap.HitObjects[index];
 
-        if (obj[2] + (obj[3] & 2 ? obj.at(-2) * obj[6] : 0) + fadeout < time ||
+        if (obj[2] + (obj[3] & 2 ? obj.at(-2) * obj[6] : (obj[3] & 8 ? obj[5] - obj[2] : 0)) + fadeout < time ||
             obj[2] - preempt > time) {
             index--;
             continue;
         }
+        merda++;
 
         if (obj[3] & 2) {                   // slider
             bufferCtx.globalCompositeOperation = "source-over";
@@ -396,7 +400,123 @@ function callback(time) {
             }
         }
         else if (obj[3] && 8) {             // spinner
+            let sprite;
 
+            if (time < obj[5]) {
+                ctx.globalAlpha = clamp(0, (time - obj[2] + 400) / 400, 1);
+            }
+            else {
+                ctx.globalAlpha = clamp(0, (obj[5] - time + fadeout) / fadeout, 1);
+            }                        
+            
+            if (skin.isOldSpinner) {
+                // spinner background
+                sprite = skin["spinner-background"][0];
+                size = [osuToPixelsX(sprite.width) * 0.625, osuToPixelsY(sprite.height) * 0.625];
+                ctx.drawImage(sprite, osuToPixelsX(256) + margins[0] - size[0] / 2,
+                    osuToPixelsY(192) + margins[1] - size[1] / 2, size[0], size[1]);
+
+                // spinner circle
+                sprite = skin["spinner-circle"];
+                size = [osuToPixelsX(sprite.width) * 0.625, osuToPixelsY(sprite.height) * 0.625];
+                const pow = 2;
+                const maxRPM = 477;
+                // time it takes to reach maxRPM
+                const timemaxRPM = (obj[5] - obj[2]) / 10;
+                ctx.save();
+                ctx.translate(osuToPixelsX(256) + margins[0], osuToPixelsY(192) + margins[1]);
+                ctx.rotate((Math.pow(clamp(0, (time - obj[2]) / timemaxRPM, 1), pow) / pow * timemaxRPM
+                    + clamp(0, time - obj[2] - timemaxRPM, obj[5] - obj[2] - timemaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+                ctx.restore();
+
+                // spinner metre
+                sprite = skin["spinner-metre"];
+                const barN = Math.floor(clamp(0, (time - obj[2]) / (obj[5] - obj[2]) / 0.45, 1) * 10);
+                ctx.drawImage(sprite,
+                    0, (10 - barN) * (768 - 34) / 10 /** fieldSize[1] / 600*/ * sprite.naturalHeight / sprite.height,
+                    sprite.naturalWidth, barN * (768 - 34) / 10 * sprite.naturalHeight / sprite.height,
+                    canvas.width / 2 - 512 * fieldSize[0] / 800, (canvas.height / 2 - (383 - 34) * fieldSize[1] / 600) + (10 - barN) * (768 - 34) / 10 * fieldSize[1] / 600,
+                    sprite.width * fieldSize[0] / 800, barN * (768 - 34) / 10 * fieldSize[1] / 600
+                );
+            }
+            else {
+                const pow = 2;
+                const baseTimeMaxRPM = (obj[5] - obj[2]) / 10;
+                const scale = 0.8 + easierOut(clamp(0, (time - obj[2]) / ((obj[5] - obj[2]) * 0.45), 1)) * 0.2;
+                let maxRPM, timeMaxRPM;
+
+                // spinner glow
+                sprite = skin["spinner-glow"][0];
+                const tempAlpha = ctx.globalAlpha;
+                if (time < obj[5]) {
+                    ctx.globalAlpha = clamp(0, (time - obj[2]) / ((obj[5] - obj[2]) * 0.45), 1);
+                }
+                else {
+                    ctx.globalAlpha = clamp(0, (obj[5] + fadeout - time) / fadeout, 1);
+                }
+                size = [osuToPixelsX(sprite.width) * 0.625 * scale, osuToPixelsY(sprite.height) * 0.625 * scale];
+                ctx.drawImage(sprite, osuToPixelsX(256) + margins[0] - size[0] / 2,
+                    osuToPixelsY(192) + margins[1] - size[1] / 2, size[0], size[1]);
+                ctx.globalAlpha = tempAlpha;
+                
+                // spinner bottom
+                sprite = skin["spinner-bottom"];
+                size = [osuToPixelsX(sprite.width) * 0.625 * scale, osuToPixelsY(sprite.height) * 0.625 * scale];
+                maxRPM = 75;
+                timeMaxRPM = baseTimeMaxRPM / 5;
+                ctx.save();
+                ctx.translate(osuToPixelsX(256) + margins[0], osuToPixelsY(192) + margins[1]);
+                ctx.rotate((Math.pow(clamp(0, (time - obj[2]) / baseTimeMaxRPM, 1), pow) / pow * baseTimeMaxRPM
+                    + clamp(0, time - obj[2] - baseTimeMaxRPM, obj[5] - obj[2] - baseTimeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+                ctx.restore();
+                
+                // spinner top
+                sprite = skin["spinner-top"];
+                size = [osuToPixelsX(sprite.width) * 0.625 * scale, osuToPixelsY(sprite.height) * 0.625 * scale];
+                maxRPM = 230;
+                timeMaxRPM = baseTimeMaxRPM / 3;
+                ctx.save();
+                ctx.translate(osuToPixelsX(256) + margins[0], osuToPixelsY(192) + margins[1]);
+                ctx.rotate((Math.pow(clamp(0, (time - obj[2]) / timeMaxRPM, 1), pow) / pow * timeMaxRPM
+                    + clamp(0, time - obj[2] - timeMaxRPM, obj[5] - obj[2] - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+                ctx.restore();
+                
+                // spinner middle2
+                sprite = skin["spinner-middle2"];
+                size = [osuToPixelsX(sprite.width) * 0.625 * scale, osuToPixelsY(sprite.height) * 0.625 * scale];
+                timeMaxRPM = baseTimeMaxRPM / 3;
+                ctx.save();
+                ctx.translate(osuToPixelsX(256) + margins[0], osuToPixelsY(192) + margins[1]);
+                ctx.rotate((Math.pow(clamp(0, (time - obj[2]) / timeMaxRPM, 1), pow) / pow * timeMaxRPM
+                    + clamp(0, time - obj[2] - timeMaxRPM, obj[5] - obj[2] - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+                ctx.restore();
+                
+                // spinner middle
+                sprite = skin["spinner-middle"];
+                size = [osuToPixelsX(sprite.width) * 0.625 * scale, osuToPixelsY(sprite.height) * 0.625 * scale];
+                ctx.drawImage(sprite, osuToPixelsX(256) + margins[0] - size[0] / 2,
+                    osuToPixelsY(192) + margins[1] - size[1] / 2, size[0], size[1]);
+            }
+
+            const maxRPM = 477;
+            sprite = skin["cursor"];
+            const size2 = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
+            ctx.save();
+            ctx.translate(osuToPixelsX(obj[0]) + margins[0], osuToPixelsY(obj[1]) + margins[1]);
+            ctx.rotate(-clamp(0, time - obj[2], obj[5] - obj[2]) / 1000 / 60 * maxRPM * Math.PI * 2);
+            ctx.drawImage(sprite, -size2[0] / 2, -size2[1] / 2 - 100, size2[0], size2[1]);
+            ctx.restore();
+
+            // approach circle
+            sprite = skin["spinner-approachcircle"];
+            const approachScale = 0.05 + clamp(0, (obj[5] - time) / (obj[5] - obj[2]), 1) * 0.95;
+            size = [osuToPixelsX(sprite.width) * 1.16 * approachScale, osuToPixelsY(sprite.height) * 1.16 * approachScale];
+            ctx.drawImage(sprite, osuToPixelsX(256) + margins[0] - size[0] / 2,
+                osuToPixelsY(192) + margins[1] - size[1] / 2, size[0], size[1]);
         }
 
         index--;
@@ -410,7 +530,7 @@ function callback(time) {
         // get tinted approachcircle
         const tinted = skin["approachcircle"][obj.at(-1)[1] % skin.ini.combos.length];
 
-        const size = [osuToPixelsX(radius) * 2 / 128 * tinted.width * approachScale, osuToPixelsY(radius) * 2 / 128 * tinted.height * approachScale];
+        const size = [osuToPixelsX(radius) / 64 * tinted.width * approachScale, osuToPixelsY(radius) / 64 * tinted.height * approachScale];
         ctx.drawImage(tinted, osuToPixelsX(obj[0]) + margins[0] - size[0] / 2, osuToPixelsX(obj[1]) + margins[1] - size[1] / 2, size[0], size[1]);
     }
 
@@ -466,7 +586,7 @@ function callback(time) {
             if (skin.isDefaultSliderBall) {
                 sprite = skin["sliderb-spec"];
                 size = [osuToPixelsX(radius) / 64 * sprite.width, osuToPixelsY(radius) / 64 * sprite.height];
-                ctx.globalCompositeOperation = "lighter"
+                ctx.globalCompositeOperation = "lighter";
                 ctx.drawImage(sprite, osuToPixelsX(followPos[0]) + margins[0] - size[0] / 2, osuToPixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
                 ctx.globalCompositeOperation = "source-over";
             }
@@ -835,6 +955,9 @@ const parseBeatmap = (text) => {
                     vals[6] = parseInt(vals[6]);
                     vals[7] = parseInt(vals[7]);
                 }
+                if (vals[3] & 8) {
+                    vals[5] = parseInt(vals[5]);
+                }
                 result[currCategory].push(vals);
                 break;
             }
@@ -867,9 +990,13 @@ const parseBeatmap = (text) => {
     for (let i = 0; i < result.HitObjects.length; i++) {
         const obj = result.HitObjects[i];
 
-        if (first || obj[3] & 4) { // new combo
+        if (!(obj[3] & 8) && (first || obj[3] & 4)) { // new combo
             currentCombo = 1;
-            comboIndex += 1 + (((16 & obj[3]) + (32 & obj[3]) + (64 & obj[3])) >> 4);
+            comboIndex += 1;
+
+            if (i == 0 || !(result.HitObjects[i - 1][3] & 8)) {
+                comboIndex += (((16 & obj[3]) + (32 & obj[3]) + (64 & obj[3])) >> 4);
+            }
         }
         if (obj[3] & 2) { // slider
             // find corresponding timing points
@@ -890,9 +1017,14 @@ const parseBeatmap = (text) => {
             sliders.push(obj);
             i--;
         }
+
         obj.push([currentCombo, comboIndex]);
         currentCombo++;
         first = false;
+
+        if (obj[3] & 8) {
+            first = true;
+        }
     }
 
     sliders.sort((a, b) => (a[2] + a.at(-2)) - (b[2] + b.at(-2)));
@@ -934,4 +1066,7 @@ const binarySearch = (objects, time) => {
 
 const easeOut = (t) => {
     return 1.5 * t / (0.5 + t);
+}
+const easierOut = (t) => {
+    return 1.2 * t / (0.2 + t);
 }
