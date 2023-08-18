@@ -5,7 +5,7 @@ import { mod, clamp, lerp, range, rgb } from "./functions.js";
 
 const mapFolder = 0 ? "songs/889855 GALNERYUS - RAISE MY SWORD/" : "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/";
 const diff = 0 ? "GALNERYUS - RAISE MY SWORD (Sotarks) [A THOUSAND FLAMES].osu" : "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasasasasa].osu";
-const skinName = ["_Kynan-2017-08-10", "Rafis 2017-08-21", "- YUGEN -"][2];
+const skinName = ["_Kynan-2017-08-10", "Rafis 2017-08-21", "Cookiezi 36 2018-11-23 Rafis Edit"][2];
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 var bezierSegmentMaxLengthSqrd;             // in osu pixels, squared
@@ -15,7 +15,7 @@ const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d");
 var bufferCanvas, bufferCtx;
 
-const canvasSize = [1024, 768];
+const canvasSize = [1524, 1200];
 const minMargin = 112;
 var fieldSize = [], margins, bgSize;
 var beatmap, skin;
@@ -95,7 +95,7 @@ window.onload = async (e) => {
 
     player = window.player = await MusicPlayer.init(mapFolder + beatmap.General.AudioFilename);
     progressBar = new ProgressBar("#progress-bar", player, callback);
-    player.currentTime = 0.369//41.072;
+    player.currentTime = 0//41.072;
 
     var buffer = await fetch("skins/" + skinName + "/normal-hitclap.wav");
     buffer = await player.audioContext.decodeAudioData(await buffer.arrayBuffer());
@@ -517,6 +517,19 @@ function callback(time) {
             size = [osuToPixelsX(sprite.width) * 1.16 * approachScale, osuToPixelsY(sprite.height) * 1.16 * approachScale];
             ctx.drawImage(sprite, osuToPixelsX(256) + margins[0] - size[0] / 2,
                 osuToPixelsY(192) + margins[1] - size[1] / 2, size[0], size[1]);
+
+            // spinner clear
+            const temp = time - obj[2] - (obj[5] - obj[2]) * 0.45;
+            if (temp > 0) {
+                sprite = skin["spinner-clear"];
+                const scale = temp < 225 ? (1.7 - easeOut(clamp(0, temp / 225, 1))) : (0.7 + clamp(0, (temp - 225) / 141, 1) * 0.2);
+                size = [osuToPixelsX(sprite.width) * 0.7 * scale, osuToPixelsY(sprite.height) * 0.7 * scale];
+                if (ctx.globalAlpha == 1) {
+                    ctx.globalAlpha = clamp(0, temp / 366, 1);
+                }
+                ctx.drawImage(sprite, osuToPixelsX(256) + margins[0] - size[0] / 2,
+                    osuToPixelsY(86.5) + margins[1] - size[1] / 2, size[0], size[1]);
+            }
         }
 
         index--;

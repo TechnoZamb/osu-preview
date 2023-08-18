@@ -16,6 +16,7 @@ const files = {
     "reversearrow": { },
     "sliderscorepoint": { },
     "spinner-approachcircle": { },
+    "spinner-clear": { },
     "spinner-background": { notRequired: true, tinted: [100, 100, 100] },
     "cursor": { }
 };
