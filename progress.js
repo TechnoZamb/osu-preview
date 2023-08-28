@@ -5,7 +5,9 @@ export class ProgressBar {
     targetValue = -1; actualValue = 0.5;
     dragging = false;
 
-    constructor(element, musicPlayer, callback) {
+    onFrame; onResume;
+
+    constructor(element, musicPlayer) {
         if (element instanceof Element)
             this.progressBar = element;
         else
@@ -41,13 +43,13 @@ export class ProgressBar {
             }
         });
 
-        this.callback = callback;
         window.requestAnimationFrame(() => this.frame());
     }
 
     frame() {
         var deltaT = (performance.now() - this.time) / 10;
         var actualValue = this.actualValue, targetValue = this.targetValue;
+        var merda = false;
 
         if (targetValue != -1) {
             var diff = targetValue - actualValue;
@@ -73,14 +75,20 @@ export class ProgressBar {
             }
 
             if (targetValue == -1) {
-                if (this.dragging)
+                this.player.currentTime = actualValue * this.player.duration;
+
+                if (this.dragging) {
                     this.player.changePlayBackRate(0);
-                else
+                }
+                else {
                     this.player.changePlayBackRate(1);
+                    if (!this.player.paused) this.player.play();
+                }
             }
-            else
+            else {
                 this.player.changePlayBackRate((actualValue - prevValue) * this.player.duration / (deltaT / 1000));
-            this.player.currentTime = prevValue * this.player.duration;
+                this.player.currentTime = prevValue * this.player.duration;
+            }
         }
         else {
             actualValue = this.player.currentTime / this.player.duration;
@@ -88,9 +96,14 @@ export class ProgressBar {
         
         this.progress.style.width = actualValue * 100 + "%";
         this.actualValue = actualValue; this.targetValue = targetValue;
-        this.time = performance.now();
-
-        if (this.callback) this.callback(this.actualValue * this.player.duration);
+        
+        if (this.onFrame) this.onFrame(this.player.currentTime);
+        
         window.requestAnimationFrame(() => this.frame());
+        
+        if (merda) {
+            
+        }
+        this.time = performance.now();
     }
 }

@@ -1,10 +1,10 @@
 import * as main from "./index.js";
 import { mod, clamp, lerp, range, rgb } from "./functions.js";
 import { drawSlider, getFollowPosition, getSliderTicks } from "./slider.js";
-import { asyncLoadImages } from "./skin.js";
+import { asyncLoadImage } from "./skin.js";
 
-const canvasSize = [1524, 1200];
-const minMargin = 112;
+const canvasSize = [800, 600];
+const minMargin = 20;
 const drawGrid = true;
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
@@ -17,7 +17,7 @@ export let osuToPixelsX, osuToPixelsY;
 let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
 let sliderGradientDivisions = 20;
 
-export async function init() {
+export async function init(bgURL) {
     canvas = document.querySelector("canvas");
     ctx = canvas.getContext("2d");
     bufferCanvas = document.createElement("canvas");
@@ -41,7 +41,12 @@ export async function init() {
     osuToPixelsX = (val) => val / 512 * fieldSize[0];
     osuToPixelsY = (val) => val / 384 * fieldSize[1];
 
-    bg = await asyncLoadImages("b/leah miku.jpg");
+    if (bgURL) {
+        bg = await asyncLoadImage(bgURL);
+    }
+    else {
+        bg = await asyncLoadImage("b/leah miku.jpg");
+    }
 
     if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
         bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];

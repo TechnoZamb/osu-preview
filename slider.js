@@ -83,7 +83,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
         // if determinant = 0, the three points are in a straight line, so handle the slider as if it was a linear slider
         if (det == 0) {
             obj[5][0] = "L";
-            drawSlider(obj, length, draw);
+            drawSlider(obj, length, draw, bufferCtx);
             return;
         }
 

@@ -1,35 +1,40 @@
-import { rgb, urlJoin } from "./functions.js";
+import { extractFile } from "./index.js";
+import { rgb } from "./functions.js";
+const { BlobWriter, TextWriter } = zip;
 
-const DEFAULT_SKIN_PATH = "defaultskin/";
+
+const DEFAULT_SKIN_NAME = "defaultskin.zip";
+
+let defaultSkinFiles;
 
 const files = {
     "approachcircle": { tinted: true },
     "hitcircle": { tinted: true },
-    "hitcircleoverlay": { },
+    "hitcircleoverlay": {},
     "default-": { enumerable: 9 },
-    "sliderb" : { tinted: true, enumerable: -1 },
+    "sliderb": { tinted: true, enumerable: -1 },
     "sliderstartcircle": { tinted: true, notRequired: true },
     "sliderstartcircleoverlay": { notRequired: true },
     "sliderendcircle": { tinted: true, notRequired: true },
     "sliderendcircleoverlay": { notRequired: true },
-    "sliderfollowcircle": { },
-    "reversearrow": { },
-    "sliderscorepoint": { },
-    "spinner-approachcircle": { },
-    "spinner-clear": { },
+    "sliderfollowcircle": {},
+    "reversearrow": {},
+    "sliderscorepoint": {},
+    "spinner-approachcircle": {},
+    "spinner-clear": {},
     "spinner-background": { notRequired: true, tinted: [100, 100, 100] },
-    "cursor": { }
+    "cursor": {}
 };
 const oldSpinnerFiles = {
-    "spinner-circle": { },
-    "spinner-metre": { }
+    "spinner-circle": {},
+    "spinner-metre": {}
 };
 const newSpinneFiles = {
     "spinner-glow": { tinted: [17, 160, 248] },
-    "spinner-bottom": { },
-    "spinner-top": { },
-    "spinner-middle2": { },
-    "spinner-middle": { }
+    "spinner-bottom": {},
+    "spinner-top": {},
+    "spinner-middle2": {},
+    "spinner-middle": {}
 };
 const allFiles = Object.assign({}, files, oldSpinnerFiles, newSpinneFiles);
 
@@ -37,6 +42,7 @@ const defaultValues = {            // for skin.ini
     General: {
         AllowSliderBallTint: "1",
         SliderBallFlip: "1",
+        LayeredHitSounds: "1"
     },
     Colours: {
         SliderBorder: "255,255,255",
@@ -44,28 +50,34 @@ const defaultValues = {            // for skin.ini
     }
 };
 
-export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSkin) {
-    // load in both skin.ini and default skin.ini
-    var defaultIni = await fetch(urlJoin(DEFAULT_SKIN_PATH, "skin.ini"));
-    var ini = await fetch(urlJoin(skinPath, "skin.ini"));
-    if (!ini.ok) {
-        if (!defaultIni.ok) {
+export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmapSkin) {
+    // load default skin
+    if (!defaultSkinFiles) {
+        defaultSkinFiles = await fetch(DEFAULT_SKIN_NAME).then(res => res.blob());
+        defaultSkinFiles = (await extractFile(defaultSkinFiles)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    }
+
+    //#region skin.ini and default skin.ini
+    let defaultIni = defaultSkinFiles["skin.ini"];
+    let ini = skinFiles["skin.ini"];
+    if (!ini) {
+        if (!defaultIni) {
             throw new Error();
         }
         ini = defaultIni;
     }
-
     if (ini !== defaultIni) {
-        if (!defaultIni.ok) {
+        if (!defaultIni) {
             defaultIni = null;
         }
         else {
-            defaultIni = parseIni(await defaultIni.text());
+            defaultIni = parseIni(await defaultIni.getData(new TextWriter()));
         }
     }
-    ini = parseIni(await ini.text());
+    ini = parseIni(await ini.getData(new TextWriter()));
+    //#endregion
 
-    // parse combo colors
+    //#region combo colors
     ini.combos = [];
     if (ini.Colours.Combo1) {
         for (let i = 2; i <= 8; i++) {
@@ -103,6 +115,7 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
         }
         catch (e) { throw e; }
     }
+    //#endregion
 
     // try parse map colors
     if (loadBeatmapSkin && beatmapObj && beatmapObj.Colours) {
@@ -143,59 +156,49 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
     //#region slider balls
     const sliderbs = [];
     var index = 0;
-    var sliderb = { baseBaseName: "sliderb", baseName: "sliderb0", stage: (loadBeatmapSkin ? 10 : 8) };
+    var sliderb = { baseName: "sliderb", name: "sliderb0", ext: ".png", stage: (loadBeatmapSkin ? 10 : 8) };
     var stage = 0;
 
     outer:
     while (true) {
         switch (sliderb.stage) {
             case 10:
-                sliderb.url = urlJoin(beatmapPath, sliderb.baseBaseName + index + ".png");
-                sliderb.isHD = false;
+                Object.assign(sliderb, { files: beatmapFiles, name: "sliderb" + index, isHD: false });
                 break;
             case 9:
-                sliderb.url = urlJoin(beatmapPath, "sliderb.png");
-                sliderb.isHD = false;
+                Object.assign(sliderb, { files: beatmapFiles, name: "sliderb", isHD: false });
                 break;
             case 8:
-                sliderb.url = urlJoin(skinPath, sliderb.baseBaseName + index + "@2x.png");
-                sliderb.isHD = true;
+                Object.assign(sliderb, { files: skinFiles, name: "sliderb" + index + "@2x", isHD: true });
                 break;
             case 7:
-                sliderb.url = urlJoin(skinPath, sliderb.baseBaseName + index + ".png");
-                sliderb.isHD = false;
+                Object.assign(sliderb, { files: skinFiles, name: "sliderb" + index, isHD: false });
                 break;
             case 6:
-                sliderb.url = urlJoin(skinPath, "sliderb@2x.png");
-                sliderb.isHD = true;
+                Object.assign(sliderb, { files: skinFiles, name: "sliderb@2x", isHD: true });
                 break;
             case 5:
-                sliderb.url = urlJoin(skinPath, "sliderb.png");
-                sliderb.isHD = false;
+                Object.assign(sliderb, { files: skinFiles, name: "sliderb", isHD: false });
                 break;
             case 4:
-                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, sliderb.baseBaseName + index + "@2x.png");
-                sliderb.isHD = true;
+                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb" + index + "@2x", isHD: true });
                 break;
             case 3:
-                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, sliderb.baseBaseName + index + ".png");
-                sliderb.isHD = false;
+                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb" + index, isHD: false });
                 break;
             case 2:
-                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, "sliderb@2x.png");
-                sliderb.isHD = true;
+                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb@2x", isHD: true });
                 break;
             case 1:
-                sliderb.url = urlJoin(DEFAULT_SKIN_PATH, "sliderb.png");
-                sliderb.isHD = false;
+                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb", isHD: false });
                 break;
             default:
                 break outer;
         }
 
-        sliderb.img = await asyncLoadImages(sliderb.url);
+        sliderb.img = await asyncLoadImage(sliderb.files, sliderb.name + sliderb.ext);
 
-        if (sliderb.img.complete && sliderb.img.naturalWidth !== 0) {
+        if (sliderb.img) {
             sliderbs.push(sliderb);
             if (stage == 0) {
                 if (sliderb.stage <= 2)
@@ -207,14 +210,14 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
                     break outer;
                 else if (sliderb.stage <= 8)
                     stage = 8;
-                
+
                 else if (sliderb.stage <= 9)
                     break outer;
                 else
                     stage = 10;
             }
             index++;
-            sliderb = { baseBaseName: "sliderb", baseName: "sliderb" + index, stage: stage };
+            sliderb = { baseName: "sliderb", ext: ".png", stage: stage };
         }
         else {
             sliderb.stage--;
@@ -224,19 +227,16 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
     }
 
     if (sliderbs.length == 0) {
-        throw new Error();
+        throw new Error("No slider ball sprites found");
     }
-    if ([1,2,5,6,9].includes(sliderbs[0].stage)) {
+    if ([1, 2, 5, 6, 9].includes(sliderbs[0].stage)) {
         sliderbs[0].baseName = "sliderb";
     }
     else if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
-        let url;
-        imgs.push({
-            url: (url = urlJoin(DEFAULT_SKIN_PATH, "sliderb-nd.png")), stage: 1, isHD: false, baseName: "sliderb-nd", baseBaseName: "sliderb-nd", img: await asyncLoadImages(url)
-        },
-        {
-            url: (url = urlJoin(DEFAULT_SKIN_PATH, "sliderb-spec.png")), stage: 1, isHD: false, baseName: "sliderb-spec", baseBaseName: "sliderb-spec", img: await asyncLoadImages(url)
-        });
+        imgs.push(
+            { files: defaultSkinFiles, name: "sliderb-nd", baseName: "sliderb-nd", ext: ".png", stage: 1, isHD: false, img: await asyncLoadImage(defaultSkinFiles, "sliderb-nd.png") },
+            { files: defaultSkinFiles, name: "sliderb-spec", baseName: "sliderb-spec", ext: ".png", stage: 1, isHD: false, img: await asyncLoadImage(defaultSkinFiles, "sliderb-spec.png") }
+        );
     }
     //#endregion
 
@@ -261,7 +261,7 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
 
     // loading complete
     //#region construct result
-    var result = { ini: ini, isOldSpinner: isOldSpinner };
+    var result = { ini: ini, isOldSpinner: isOldSpinner, LayeredHitSounds: ini.General.LayeredHitSounds };
 
     for (let obj of imgs) {
         if (obj.isHD) {
@@ -269,19 +269,19 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
             obj.img.height /= 2;
         }
 
-        if (allFiles[obj.baseBaseName]?.tinted) {
-            if (allFiles[obj.baseBaseName].tinted === true) {
-                result[obj.baseName] = [];
+        if (allFiles[obj.baseName]?.tinted) {
+            if (allFiles[obj.baseName].tinted === true) {
+                result[obj.name] = [];
                 for (let combo of ini.combos) {
-                    result[obj.baseName].push(tintImage(obj.img, combo));
+                    result[obj.name].push(tintImage(obj.img, combo));
                 }
             }
             else {
-                result[obj.baseName] = [tintImage(obj.img, allFiles[obj.baseBaseName].tinted)];
+                result[obj.name] = [tintImage(obj.img, allFiles[obj.baseName].tinted)];
             }
         }
         else {
-            result[obj.baseName] = obj.img;
+            result[obj.name] = obj.img;
         }
     }
 
@@ -304,16 +304,18 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
             }
         }
         else {
-            sliderbs[i] = [ sliderbs[i].img ];
+            sliderbs[i] = [sliderbs[i].img];
         }
     }
     result["sliderb"] = sliderbs;
     //#endregion
 
+    result.hitSounds = await loadHitsounds();
+
     return result;
 
     async function loadAllFiles(fileNames) {
-        const imgs = [];
+        const result = [];
 
         // stages:
         //      5: beatmap sd
@@ -324,112 +326,175 @@ export async function parseSkin(skinPath, beatmapPath, beatmapObj, loadBeatmapSk
         //      0: fail
 
         for (let [key, val] of Object.entries(fileNames)) {
-            if (val.enumerable) {
-                if (val.enumerable != -1) {
-                    for (let i = 0; i <= val.enumerable; i++) {
-                        if (loadBeatmapSkin) {
-                            imgs.push({
-                                url: urlJoin(beatmapPath, key + i + ".png"), stage: 5, isHD: false, baseName: key + i, baseBaseName: key
-                            });
-                        }
-                        else {
-                            imgs.push({
-                                url: urlJoin(skinPath, key + i + "@2x.png"), stage: 4, isHD: true, baseName: key + i, baseBaseName: key
-                            });
-                        }
+            let imgs = [];
+
+            if (val.enumerable && val.enumerable != -1) {
+                for (let i = 0; i <= val.enumerable; i++) {
+                    if (loadBeatmapSkin) {
+                        imgs.push({ files: beatmapFiles, count: i, ext: ".png", baseName: key, stage: 5, isHD: false });
+                    }
+                    else {
+                        imgs.push({ files: skinFiles, count: i, ext: ".png", baseName: key, stage: 4, isHD: true });
                     }
                 }
             }
-            else {
+            else if (!val.enumerable) {
                 if (loadBeatmapSkin) {
-                    imgs.push({
-                        url: urlJoin(beatmapPath, key + ".png"), stage: 5, isHD: false, baseName: key, baseBaseName: key
-                    });
+                    imgs.push({ files: beatmapFiles, ext: ".png", baseName: key, stage: 5, isHD: false });
                 }
                 else {
-                    imgs.push({
-                        url: urlJoin(skinPath, key + "@2x.png"), stage: 4, isHD: true, baseName: key, baseBaseName: key
-                    });
+                    imgs.push({ files: skinFiles, ext: ".png", baseName: key, stage: 4, isHD: true });
                 }
+            }
+
+            for (let obj of imgs) {
+                let ok = false;
+
+                do {
+                    obj.img = await asyncLoadImage(obj.files, obj.name + (obj.isHD ? "@2x" : "") + obj.ext);
+
+                    if (obj.img) {
+                        obj.ok = true;
+                        ok = true;
+                    }
+                    else {
+                        switch (--obj.stage) {
+                            case 5: {
+                                Object.assign(obj, { files: beatmapFiles, isHD: false });
+                                break;
+                            }
+                            case 4: {
+                                Object.assign(obj, { files: skinFiles, isHD: true });
+                                break;
+                            }
+                            case 3: {
+                                Object.assign(obj, { files: skinFiles, isHD: false });
+                                break;
+                            }
+                            case 2: {
+                                Object.assign(obj, { files: defaultSkinFiles, isHD: true });
+                                break;
+                            }
+                            case 1: {
+                                Object.assign(obj, { files: defaultSkinFiles, isHD: false });
+                                break;
+                            }
+                            default: {
+                                if (fileNames[obj.baseName].notRequired) {
+                                    ok = true;
+                                }
+                                else {
+                                    throw new Error();
+                                }
+                            }
+                        }
+
+                        obj.name = obj.baseName + (obj.count ?? "");
+                    }
+
+                } while (ok == false)
+
+                result.push(obj);
             }
         }
 
-        (await asyncLoadImages(imgs.map(o => o.url))).map((o, i) => imgs[i].img = o);
+        return result;
+    }
 
-        let completed = 0;
-        while (completed < imgs.length) {
-            const obj = imgs[completed];
+    async function loadHitsounds() {
 
-            // if img loaded correctly
-            if (obj.img.complete && obj.img.naturalWidth !== 0) {
-                obj.ok = true;
-                completed++;
+        const soundSet = new Set();
+
+        for (let obj of beatmapObj.HitObjects) {
+            const hitSamplesPos = (obj[3] & 2) ? 10 : ((obj[3] & 8) ? 6 : 5);
+
+            if (obj[3] & 2) {           // slider
+
             }
-            else {
-                switch (--obj.stage) {
-                    case 5: {
-                        obj.url = urlJoin(beatmapPath, obj.baseName + ".png");
-                        obj.isHD = false;
-                        break;
-                    }
-                    case 4: {
-                        obj.url = urlJoin(skinPath, obj.baseName + "@2x.png");
-                        obj.isHD = true;
-                        break;
-                    }
-                    case 3: {
-                        obj.url = urlJoin(skinPath, obj.baseName + ".png");
-                        obj.isHD = false;
-                        break;
-                    }
-                    case 2: {
-                        obj.url = urlJoin(DEFAULT_SKIN_PATH, obj.baseName + "@2x.png");
-                        obj.isHD = true;
-                        break;
-                    }
-                    case 1: {
-                        obj.url = urlJoin(DEFAULT_SKIN_PATH, obj.baseName + ".png");
-                        obj.isHD = false;
-                        break;
-                    }
-                    default: {
-                        if (fileNames[obj.baseBaseName].notRequired) {
-                            completed++;
-                        }
-                        else {
-                            throw new Error();
-                        }
-                    }
-                }
+            if (obj[3] & 8) {           // spinner
 
-                obj.img = await asyncLoadImages(obj.url);
+            }
+
+            for (let i = 1; i < 4; i++) {
+                if (obj[4] & (2 ** i)) {
+                    soundSet.add(`${[, "normal", "soft", "drum"][obj[hitSamplesPos][1]]}-hit${["normal", "whistle", "finish", "clap"][i]}${(x => x < 2 ? "" : x)(obj[hitSamplesPos][2])}`);
+                }
+            }
+            if (obj[4] & 14 == 0 || result.LayeredHitSounds) {
+                soundSet.add(`${[, "normal", "soft", "drum"][obj[hitSamplesPos][0]]}-hitnormal${(x => x < 2 ? "" : x)(obj[hitSamplesPos][2])}`);
             }
         }
 
-        return imgs;
+
+        const tempAudioContext = new AudioContext();
+
+        // load base hitsounds
+        const hitsounds = {};
+        for (let sound of soundSet) {
+
+            let stage = loadBeatmapSkin ? 0 : 3;
+
+            do {
+                const file = [
+                    () => beatmapFiles[sound + ".wav"],
+                    () => beatmapFiles[sound + ".mp3"],
+                    () => beatmapFiles[sound + ".wav"],
+                    () => skinFiles[sound.replace(/[0-9]/g, '') + ".wav"],
+                    () => skinFiles[sound.replace(/[0-9]/g, '') + ".mp3"],
+                    () => skinFiles[sound.replace(/[0-9]/g, '') + ".ogg"],
+                    () => defaultSkinFiles[sound.replace(/[0-9]/g, '') + ".wav"],
+                    () => defaultSkinFiles[sound.replace(/[0-9]/g, '') + ".mp3"],
+                    () => defaultSkinFiles[sound.replace(/[0-9]/g, '') + ".ogg"],
+                    () => { { throw new MediaError(`Sound file ${sound} not found`) } }
+                ][stage]();
+
+                if (file) {
+                    const arrayBuffer = await file.getData(new BlobWriter()).then(x => x.arrayBuffer());
+                    let audioBuffer;
+                    try {
+                        audioBuffer = await tempAudioContext.decodeAudioData(arrayBuffer);
+                    }
+                    catch {
+                        audioBuffer = tempAudioContext.createBuffer(1, 1, tempAudioContext.sampleRate);
+                    }
+
+                    // file loaded correctly
+                    hitsounds[sound] = audioBuffer;
+                    break;
+                }
+            } while (stage++ < 99)
+        }
+
+        return hitsounds;
     }
 }
 
-export async function asyncLoadImages(files) {
-    if (files instanceof Array) {
-        const successes = [], errors = [], promises = [], images = [];
+export async function asyncLoadImage(files, name) {
+    let url;
 
-        for (let i = 0; i < files.length; i++) {
-            promises[i] = new Promise((res, rej) => { successes[i] = res; errors[i] = rej });
-            images[i] = Object.assign(new Image(), { src: files[i], onload: successes[i], onerror: errors[i] });
+    if (name) {
+        if (!files[name]) {
+            return null;
         }
 
-        await Promise.allSettled(promises);
-        return images;
+        try {
+            url = URL.createObjectURL(await files[name].getData(new BlobWriter()));
+        }
+        catch {
+            return null;
+        }
     }
     else {
-        let success, error;
-        const promise = new Promise((res, rej) => { success = res; error = rej });
-        const image = Object.assign(new Image(), { src: files, onload: success, onerror: error });
-        await Promise.allSettled([promise]);
-        return image;
+        url = files;
     }
+
+    let success, error;
+    const promise = new Promise((res, rej) => { success = res; error = rej });
+    const image = Object.assign(new Image(), { src: url, onload: success, onerror: error });
+    await Promise.allSettled([promise]);
+    return (image.complete && image.naturalWidth !== 0) ? image : null;
 }
+
 
 function parseIni(text) {
     var result = {};

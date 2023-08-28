@@ -3,6 +3,8 @@ export const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
 export const lerp = (min, max, t) => (max - min) * t + min;
 export const range = (low1, high1, low2, high2, t) => (t - low1) / (high1 - low1) * (high2 - low2) + low2;
 export const rgb = (val) => val.split?.(",").map?.(x => clamp(0, parseInt(x.trim()), 255)) ?? null;
+export const sleep = async (ms) => await new Promise(r => setTimeout(r, ms));
+
 
 // https://github.com/jfromaniello/url-join/blob/main/lib/url-join.js
 function normalize(strArray) {
