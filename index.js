@@ -31,7 +31,7 @@ window.addEventListener("load", async (e) => {
     const oszFile = await fetch("map.zip").then(r => r.blob());
     const beatmapFiles = (await extractFile(oszFile)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
-    beatmap = await getDifficulty(beatmapFiles, "2625697");
+    beatmap = await getDifficulty(beatmapFiles, "0");
     beatmap = parseBeatmap(beatmap);
 
     beatmap.radius = 54.4 - 4.48 * parseFloat(beatmap.Difficulty.CircleSize);
@@ -97,26 +97,39 @@ const queueHitsounds = (timeFrom) => {
             continue;
         }
 
-        const hitSamplesPos = (obj[3] & 2) ? 10 : ((obj[3] & 8) ? 6 : 5);
-
-        for (let i = 1; i < 4; i++) {
-            if ((obj[3] & 2 ? parseInt(obj[8]?.split?.("|")[0] ?? 0) : obj[4]) & (2 ** i)) {
-                const soundName = `${[, "normal", "soft", "drum"][obj[hitSamplesPos][1]]}-hit${["normal", "whistle", "finish", "clap"][i]}${(x => x < 2 ? "" : x)(obj[hitSamplesPos][2])}`;
-                source = player.audioContext.createBufferSource();
-                source.buffer = skin.hitSounds[soundName];
-                source.connect(player.audioContext.destination);
-                source.start((obj[2] - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
-                queuedHitsounds.push(source);
-            }
-        }
-
-        if (obj[4] == 0 || skin.LayeredHitSounds) {
-            const soundName = `${[, "normal", "soft", "drum"][obj[hitSamplesPos][0]]}-hitnormal${(x => x < 2 ? "" : x)(obj[hitSamplesPos][2])}`;
+        const playSound = (set, sound, index, time) => {
+            const soundName = `${[, "normal", "soft", "drum"][set]}-hit${["normal", "whistle", "finish", "clap"][sound]}${(x => x < 2 ? "" : x)(index)}`;
             source = player.audioContext.createBufferSource();
             source.buffer = skin.hitSounds[soundName];
             source.connect(player.audioContext.destination);
-            source.start((obj[2] - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+            source.start((obj[2] - timeFrom + (time ?? 0)) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
             queuedHitsounds.push(source);
+        };
+
+        if (obj[3] & 2) {
+            // for each slide
+            for (let i = 0; i <= obj[6]; i++) {
+                for (let j = 1; j < 4; j++) {
+                    if (obj[8]?.[i] & (2 ** j)) {
+                        playSound(obj[9][i][1], j, obj[10][2], obj.at(-2) * i);
+                    }
+                }
+
+                if (obj[8]?.[i] == 0 || parseInt(skin.LayeredHitSounds)) {
+                    playSound((obj[9]?.[i][0] ?? 1), 0, obj[10][2], obj.at(-2) * i);
+                }
+            }
+        }
+        else {
+            for (let i = 1; i < 4; i++) {
+                if (obj[4] & (2 ** i)) {
+                    playSound(obj[5][1], i, obj[5][2]);
+                }
+            }
+
+            if (obj[4] == 0 || parseInt(skin.LayeredHitSounds)) {
+                playSound(obj[5][0], 0, obj[5][2]);
+            }
         }
     }
 }
@@ -194,9 +207,10 @@ const parseBeatmap = (text) => {
                     vals[5] = parseInt(vals[5]);
                 }
 
-                // hitsounds
+                // custom hitsamples
                 const pos = (vals[3] & 2) ? 10 : ((vals[3] & 8) ? 6 : 5);
                 vals[pos] = (vals[pos]?.split?.(":").map((x, i) => (i != 4 ? parseInt(x) : x))) ?? [0, 0, 0, 0, ""];
+
                 result[currCategory].push(vals);
                 break;
             }
@@ -276,6 +290,23 @@ const parseBeatmap = (text) => {
         if (obj[hitSamplesPos][2] == 0) {
             obj[hitSamplesPos][2] = result.TimingPoints[tpIndex - 1][4];
         }
+
+        if (obj[3] & 2) {
+            if (obj[8]) {
+                obj[8] = obj[8].split("|").map(x => parseInt(x));
+            }
+            if (obj[9]) {
+                obj[9] = obj[9].split("|").map(x => x.split(":").map(y => parseInt(y)));
+                for (let x of obj[9]) {
+                    if (x[0] == 0) {
+                        x[0] = result.TimingPoints[tpIndex - 1][3];
+                    }
+                    if (x[1] == 0) {
+                        x[1] = x[0];
+                    }
+                }
+            }
+        }   
     }
 
     sliders.sort((a, b) => (a[2] + a.at(-2)) - (b[2] + b.at(-2)));
@@ -288,4 +319,6 @@ const parseBeatmap = (text) => {
 
     return result;
 }
+
+
 
