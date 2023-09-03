@@ -406,22 +406,32 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         const soundSet = new Set();
 
         for (let obj of beatmapObj.HitObjects) {
-            const hitSamplesPos = (obj[3] & 2) ? 10 : ((obj[3] & 8) ? 6 : 5);
+            if (obj.isSlider) {
+                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[1]]}-slider${["slide", "whistle"][obj.hitSounds & 2 ? 1 : 0]}|${obj.hitSample[2]}`);
+                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[0]]}-slidertick|${obj.hitSample[2]}`);
 
-            if (obj[3] & 2) {           // slider
-
+                for (let i = 0; i <= obj.slides; i++) {
+                    for (let j = 1; j < 4; j++) {
+                        if (obj.edgeSounds[i] & (2 ** j)) {
+                            soundSet.add(`${[, "normal", "soft", "drum"][obj.edgeSets[i][1]]}-hit${["normal", "whistle", "finish", "clap"][j]}|${obj.hitSample[2]}`);
+                        }
+                    }
+                    if (obj.edgeSounds[i] & 14 == 0 || result.LayeredHitSounds) {
+                        soundSet.add(`${[, "normal", "soft", "drum"][obj.edgeSets[i][0]]}-hitnormal|${obj.hitSample[2]}`);
+                    }
+                }
             }
-            if (obj[3] & 8) {           // spinner
-
+            if (obj.isSpinner) {
+                // TODO
             }
 
             for (let i = 1; i < 4; i++) {
-                if (obj[4] & (2 ** i)) {
-                    soundSet.add(`${[, "normal", "soft", "drum"][obj[hitSamplesPos][1]]}-hit${["normal", "whistle", "finish", "clap"][i]}${(x => x < 2 ? "" : x)(obj[hitSamplesPos][2])}`);
+                if (obj.hitSounds & (2 ** i)) {
+                    soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[1]]}-hit${["normal", "whistle", "finish", "clap"][i]}|${obj.hitSample[2]}`);
                 }
             }
-            if (obj[4] & 14 == 0 || result.LayeredHitSounds) {
-                soundSet.add(`${[, "normal", "soft", "drum"][obj[hitSamplesPos][0]]}-hitnormal${(x => x < 2 ? "" : x)(obj[hitSamplesPos][2])}`);
+            if (obj.hitSounds & 14 == 0 || result.LayeredHitSounds) {
+                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[0]]}-hitnormal|${obj.hitSample[2]}`);
             }
         }
 
@@ -430,22 +440,23 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
 
         // load base hitsounds
         const hitsounds = {};
-        for (let sound of soundSet) {
+        for (let s of soundSet) {
 
-            let stage = loadBeatmapSkin ? 0 : 3;
+            const [sound, index] = s.split("|");
+            let stage = (loadBeatmapSkin && index != 0) ? 0 : 3;
 
             do {
                 const file = [
-                    () => beatmapFiles[sound + ".wav"],
-                    () => beatmapFiles[sound + ".mp3"],
-                    () => beatmapFiles[sound + ".wav"],
-                    () => skinFiles[sound.replace(/[0-9]/g, '') + ".wav"],
-                    () => skinFiles[sound.replace(/[0-9]/g, '') + ".mp3"],
-                    () => skinFiles[sound.replace(/[0-9]/g, '') + ".ogg"],
-                    () => defaultSkinFiles[sound.replace(/[0-9]/g, '') + ".wav"],
-                    () => defaultSkinFiles[sound.replace(/[0-9]/g, '') + ".mp3"],
-                    () => defaultSkinFiles[sound.replace(/[0-9]/g, '') + ".ogg"],
-                    () => { { throw new MediaError(`Sound file ${sound} not found`) } }
+                    () => beatmapFiles[sound + (index != 1 ? index : "") + ".wav"],
+                    () => beatmapFiles[sound + (index != 1 ? index : "") + ".mp3"],
+                    () => beatmapFiles[sound + (index != 1 ? index : "") + ".wav"],
+                    () => skinFiles[sound + ".wav"],
+                    () => skinFiles[sound + ".mp3"],
+                    () => skinFiles[sound + ".ogg"],
+                    () => defaultSkinFiles[sound + ".wav"],
+                    () => defaultSkinFiles[sound + ".mp3"],
+                    () => defaultSkinFiles[sound + ".ogg"],
+                    () => { { throw new TypeError(`Sound file ${sound} not found`) } }
                 ][stage]();
 
                 if (file) {
@@ -459,10 +470,10 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                     }
 
                     // file loaded correctly
-                    hitsounds[sound] = audioBuffer;
+                    hitsounds[sound + index] = audioBuffer;
                     break;
                 }
-            } while (stage++ < 99)
+            } while (++stage)
         }
 
         return hitsounds;

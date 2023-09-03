@@ -3,17 +3,17 @@ import { ProgressBar } from "./progress.js";
 import { parseSkin } from "./skin.js";
 import * as render from "./render.js";
 import { sleep } from "./functions.js";
+import { getSliderTicks } from "./slider.js";
 const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
 
 
-const mapFolder = ["songs/1263264 katagiri - ch3rry (Short Ver)/", "songs/1919786 MIMI vs Leah Kate - 10 Things I Hate About Ai no Sukima/", "songs/1896971 sweet ARMS - Blade of Hope (TV Size)/"][1];
-const diff = ["katagiri - ch3rry (Short Ver.) (Inverse) [Blossom].osu", "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sas].osu","sweet ARMS - Blade of Hope (TV Size) (Aruyy) [Expert].osu"][1];
-const skinName = ["_Kynan-2017-08-10", "Rafis 2017-08-21", "Cookiezi 36 2018-11-23 Rafis Edit"][0];
-
+const diff = [
+    "katagiri - ch3rry (Short Ver.) (Inverse) [Blossom 1.1x (226bpm)].osu", 
+    "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu", 
+    "sweet ARMS - Blade of Hope (TV Size) (Aruyy) [Expert].osu"
+][1];
 
 var player, progressBar;
-
-var buffer;
 
 export let beatmap, skin;
 export let bgdim = 1;
@@ -32,6 +32,7 @@ window.addEventListener("load", async (e) => {
     const beatmapFiles = (await extractFile(oszFile)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
     beatmap = await getDifficulty(beatmapFiles, "0");
+    beatmap = await beatmapFiles[diff].getData(new TextWriter());
     beatmap = parseBeatmap(beatmap);
 
     beatmap.radius = 54.4 - 4.48 * parseFloat(beatmap.Difficulty.CircleSize);
@@ -52,7 +53,7 @@ window.addEventListener("load", async (e) => {
 
     const bgURL = await getBackgroundPictureURL(beatmapFiles, beatmap);
 
-    const skinBlob = await fetch("skin.osk").then(res => res.blob());
+    const skinBlob = await fetch("skin.zip").then(res => res.blob());
     const skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
     skin = await parseSkin(skinFiles, beatmapFiles, beatmap, true);
     render.init(bgURL);
@@ -62,14 +63,15 @@ window.addEventListener("load", async (e) => {
     progressBar = new ProgressBar("#progress-bar", player);
     progressBar.onFrame = frame;
     progressBar.onResume = queueHitsounds;
-return
-    player.currentTime = parseInt(beatmap.General.PreviewTime) / 1000;
+
+    player.currentTime = 11.1//parseInt(beatmap.General.PreviewTime) / 1000;
 
     // necessary to sync music and hitsounds
     player.play();
     player.pause();
     await sleep(100);
     player.play();
+    player.pause();
 });
 
 function frame(time) {
@@ -93,42 +95,77 @@ const queueHitsounds = (timeFrom) => {
     let source;
 
     for (let obj of beatmap.HitObjects) {
-        if (obj[2] <= timeFrom) {
+        if (obj.time <= timeFrom) {
             continue;
         }
 
         const playSound = (set, sound, index, time) => {
-            const soundName = `${[, "normal", "soft", "drum"][set]}-hit${["normal", "whistle", "finish", "clap"][sound]}${(x => x < 2 ? "" : x)(index)}`;
+            const soundName = `${[, "normal", "soft", "drum"][set]}-hit${["normal", "whistle", "finish", "clap"][sound]}${index}`;
             source = player.audioContext.createBufferSource();
             source.buffer = skin.hitSounds[soundName];
             source.connect(player.audioContext.destination);
-            source.start((obj[2] - timeFrom + (time ?? 0)) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+            source.start((obj.time - timeFrom + (time ?? 0)) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
             queuedHitsounds.push(source);
         };
 
-        if (obj[3] & 2) {
+        if (obj.isSlider) {
             // for each slide
-            for (let i = 0; i <= obj[6]; i++) {
+            for (let i = 0; i <= obj.slides; i++) {
                 for (let j = 1; j < 4; j++) {
-                    if (obj[8]?.[i] & (2 ** j)) {
-                        playSound(obj[9][i][1], j, obj[10][2], obj.at(-2) * i);
+                    if (obj.edgeSounds[i] & (2 ** j)) {
+                        playSound(obj.edgeSets[i][1], j, obj.hitSample[2], obj.duration * i);
                     }
                 }
 
-                if (obj[8]?.[i] == 0 || parseInt(skin.LayeredHitSounds)) {
-                    playSound((obj[9]?.[i][0] ?? 1), 0, obj[10][2], obj.at(-2) * i);
+                if (obj.edgeSounds[i] == 0 || parseInt(skin.LayeredHitSounds)) {
+                    playSound((obj.edgeSets[i][0] ?? 1), 0, obj.hitSample[2], obj.duration * i);
+                }
+            }
+
+            // looping sound
+            let soundName = `${[, "normal", "soft", "drum"][obj.hitSample[1]]}-slider${["slide", "whistle"][obj.hitSounds & 2 ? 1 : 0]}${obj.hitSample[2]}`;
+            source = player.audioContext.createBufferSource();
+            source.buffer = skin.hitSounds[soundName];
+            source.loop = true;
+            source.connect(player.audioContext.destination);
+            source.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+            source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+            queuedHitsounds.push(source);
+
+            // slider ticks
+            const ticks = getSliderTicks(obj, true);
+            soundName = `${[, "normal", "soft", "drum"][obj.hitSample[0]]}-slidertick${obj.hitSample[2]}`;
+
+            const x = (i, t) => {
+                source = player.audioContext.createBufferSource();
+                source.buffer = skin.hitSounds[soundName];
+                source.connect(player.audioContext.destination);
+                source.start((obj.time - timeFrom + obj.duration * i + t) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+                queuedHitsounds.push(source);
+            }
+
+            for (let i = 0; i < obj.slides; i++) {
+                if (i % 2 == 0) {
+                    for (let j = 0; j < ticks.length; j++) {
+                        x(i, ticks[j]);
+                    }
+                }
+                else {
+                    for (let j = ticks.length - 1; j >= 0; j--) {
+                        x(i, obj.duration - ticks[j]);
+                    }
                 }
             }
         }
         else {
             for (let i = 1; i < 4; i++) {
-                if (obj[4] & (2 ** i)) {
-                    playSound(obj[5][1], i, obj[5][2]);
+                if (obj.hitSounds & (2 ** i)) {
+                    playSound(obj.hitSample[1], i, obj.hitSample[2]);
                 }
             }
 
-            if (obj[4] == 0 || parseInt(skin.LayeredHitSounds)) {
-                playSound(obj[5][0], 0, obj[5][2]);
+            if (obj.hitSounds == 0 || parseInt(skin.LayeredHitSounds)) {
+                playSound(obj.hitSample[0], 0, obj.hitSample[2]);
             }
         }
     }
@@ -191,27 +228,8 @@ const parseBeatmap = (text) => {
                 result[currCategory][keyval[0].trim()] = parseFloat(keyval[1].trim());
                 break;
             case "HitObjects": {
-                var vals = line.trim().split(",");
-                for (let i = 0; i < 5; i++) {
-                    vals[i] = parseInt(vals[i]);
-                }
-                if (vals[3] & 2) {                      // slider
-                    vals[5] = vals[5].split("|");
-                    for (let i = 1; i < vals[5].length; i++) {
-                        vals[5][i] = vals[5][i].split(":").map(x => parseInt(x));
-                    }
-                    vals[6] = parseInt(vals[6]);
-                    vals[7] = parseInt(vals[7]);
-                }
-                if (vals[3] & 8) {                      // spinner
-                    vals[5] = parseInt(vals[5]);
-                }
-
-                // custom hitsamples
-                const pos = (vals[3] & 2) ? 10 : ((vals[3] & 8) ? 6 : 5);
-                vals[pos] = (vals[pos]?.split?.(":").map((x, i) => (i != 4 ? parseInt(x) : x))) ?? [0, 0, 0, 0, ""];
-
-                result[currCategory].push(vals);
+                const hitObj = new HitObject(line.trim().split(","));
+                result[currCategory].push(hitObj);
                 break;
             }
             case "TimingPoints": {
@@ -244,7 +262,7 @@ const parseBeatmap = (text) => {
         const obj = result.HitObjects[i];
 
         // find current timing point
-        while (tpIndex < result.TimingPoints.length && result.TimingPoints[tpIndex][0] <= obj[2]) {
+        while (tpIndex < result.TimingPoints.length && result.TimingPoints[tpIndex][0] <= obj.time) {
             if (result.TimingPoints[tpIndex][6]) {
                 uninheritedTPIndex = tpIndex;
                 inheritedTPIndex = -1;
@@ -255,64 +273,58 @@ const parseBeatmap = (text) => {
             tpIndex++;
         }
 
-        if (!(obj[3] & 8) && (first || obj[3] & 4)) { // new combo
+        if (!obj.isSpinner && (first || obj.isNewCombo)) {
             currentCombo = 1;
             comboIndex += 1;
 
             if (i == 0 || !(result.HitObjects[i - 1][3] & 8)) {
-                comboIndex += (((16 & obj[3]) + (32 & obj[3]) + (64 & obj[3])) >> 4);
+                comboIndex += (((16 & obj.type) + (32 & obj.type) + (64 & obj.type)) >> 4);
             }
         }
-        if (obj[3] & 2) { // slider
-            obj.push(result.TimingPoints[uninheritedTPIndex][1]);
-            obj.push(obj[7] / (result.Difficulty.SliderMultiplier * 100 * (inheritedTPIndex == -1 ? 1 : -100 / result.TimingPoints[inheritedTPIndex][1])) * result.TimingPoints[uninheritedTPIndex][1]);
+        if (obj.isSlider) {
+            obj.beatLength = result.TimingPoints[uninheritedTPIndex][1];
+            obj.duration = obj.pixelLength / (result.Difficulty.SliderMultiplier * 100 * (inheritedTPIndex == -1 ? 1 : -100 / result.TimingPoints[inheritedTPIndex][1])) * result.TimingPoints[uninheritedTPIndex][1];
             result.HitObjects.splice(i, 1);
             sliders.push(obj);
             i--;
         }
 
-        obj.push([currentCombo, comboIndex]);
+        obj.combo = currentCombo;
+        obj.comboIndex = comboIndex;
         currentCombo++;
-        first = false;
 
-        if (obj[3] & 8) {
+        first = false;
+        if (obj.isSpinner) {
             first = true;
         }
 
         // https://osu.ppy.sh/wiki/en/Client/File_formats/osu_%28file_format%29#hitsounds
-        const hitSamplesPos = (obj[3] & 2) ? 10 : ((obj[3] & 8) ? 6 : 5);
-        if (obj[hitSamplesPos][0] == 0) {
-            obj[hitSamplesPos][0] = result.TimingPoints[tpIndex - 1][3];
+        if (obj.hitSample[0] == 0) {
+            obj.hitSample[0] = result.TimingPoints[tpIndex - 1][3];
         }
-        if (obj[hitSamplesPos][1] == 0) {
-            obj[hitSamplesPos][1] = obj[hitSamplesPos][0];
+        if (obj.hitSample[1] == 0) {
+            obj.hitSample[1] = obj.hitSample[0];
         }
-        if (obj[hitSamplesPos][2] == 0) {
-            obj[hitSamplesPos][2] = result.TimingPoints[tpIndex - 1][4];
+        if (obj.hitSample[2] == 0 || obj.isSlider) {    // sliders ignore the index, for some reason
+            obj.hitSample[2] = result.TimingPoints[tpIndex - 1][4];
         }
 
-        if (obj[3] & 2) {
-            if (obj[8]) {
-                obj[8] = obj[8].split("|").map(x => parseInt(x));
-            }
-            if (obj[9]) {
-                obj[9] = obj[9].split("|").map(x => x.split(":").map(y => parseInt(y)));
-                for (let x of obj[9]) {
-                    if (x[0] == 0) {
-                        x[0] = result.TimingPoints[tpIndex - 1][3];
-                    }
-                    if (x[1] == 0) {
-                        x[1] = x[0];
-                    }
+        if (obj.isSlider) {
+            for (let x of obj.edgeSets) {
+                if (x[0] == 0) {
+                    x[0] = result.TimingPoints[tpIndex - 1][3];
+                }
+                if (x[1] == 0) {
+                    x[1] = x[0];
                 }
             }
         }   
     }
 
-    sliders.sort((a, b) => (a[2] + a.at(-2)) - (b[2] + b.at(-2)));
+    sliders.sort((a, b) => (a.time + a.duration) - (b.time + b.duration));
     for (let slider of sliders) {
         let i = result.HitObjects.length - 1;
-        while (i >= 0 && slider[2] + slider.at(-2) < result.HitObjects[i][2])
+        while (i >= 0 && slider.time + slider.duration < result.HitObjects[i].time)
             i--;
         result.HitObjects.splice(i + 1, 0, slider);
     }
@@ -322,3 +334,77 @@ const parseBeatmap = (text) => {
 
 
 
+class HitObject {
+    constructor(obj, index) {
+        if (!obj || !(obj instanceof Array) || obj.length < 6) {
+            throw new TypeError("Argument error");
+        }
+
+        const validateInt = (val, field) => isNaN(val) ? throwInvalidVal(field) : parseInt(val);
+        const validateFloat = (val, field) => isNaN(val) ? throwInvalidVal(field) : parseFloat(val);
+        const throwInvalidVal = (field) => { throw new TypeError(`Hitobject #${index}: Invalid value for field ${field}`) };
+
+        const hitSample = (index2) => {
+            this.hitSample = obj[index2]?.split?.(":").map((x, i) => (i != 4 ? validateInt(x, "hitSample") : x)) ?? [0,0,0,0,""];
+        };
+
+        this.x = validateInt(obj[0], "x");
+        this.y = validateInt(obj[1], "y");
+        this.time = validateInt(obj[2], "time");
+        this.type = validateInt(obj[3], "type");
+        this.hitSounds = validateInt(obj[4], "hitSounds");
+
+        // can only be of 1 type
+        if (this.isHitCircle + this.isSlider + this.isSpinner > 1) throwInvalidVal("type");
+
+        if (this.isSlider) {
+            this.curvePoints = obj[5]?.split("|");
+
+            if (!this.curvePoints || this.length < 2) throwInvalidVal("curvePoints");
+            if (!["L", "P", "B", "C"].includes(this.curvePoints[0])) throwInvalidVal("curvePoints");
+
+            this.curveType = this.curvePoints[0];
+            this.curvePoints = this.curvePoints.slice(1);
+            for (let i = 0; i < this.curvePoints.length; i++) {
+                this.curvePoints[i] = this.curvePoints[i].split?.(":").map?.(x => validateInt(x, "curvePoints"));
+                if (!this.curvePoints || this.curvePoints[i].length != 2) throwInvalidVal("curvePoints");
+                this.curvePoints[i] = { x: this.curvePoints[i][0], y: this.curvePoints[i][1] };
+            }
+
+            this.slides = validateInt(obj[6], "slides");
+            this.pixelLength = validateFloat(obj[7], "length");
+            
+            this.edgeSounds = obj[8]?.split?.("|") ?? [];
+            for (let i = 0; i <= this.slides; i++) {
+                if (this.edgeSounds[i] == undefined) {
+                    this.edgeSounds[i] = 0;
+                }
+                else {
+                    this.edgeSounds[i] = validateInt(this.edgeSounds[i], "edgeSounds");
+                }
+            }
+
+            this.edgeSets = obj[9]?.split?.("|") ?? [];
+            for (let i = 0; i <= this.slides; i++) {
+                this.edgeSets[i] = (this.edgeSets[i] ?? "0:0").split?.(":").map(x => validateInt(x, "edgeSets"));
+                if (!this.edgeSets[i] || this.edgeSets[i].length != 2) {
+                    this.edgeSets[i] = [0, 0];
+                }
+            }
+
+            hitSample(10);
+        }
+        else if (this.isSpinner) {
+            this.endTime = validateInt(obj[5], "endTime");
+            hitSample(6);
+        }
+        else {
+            hitSample(5);
+        }
+    }
+
+    get isHitCircle() { return !!(this.type & 1) }
+    get isSlider() { return !!(this.type & 2) }
+    get isSpinner() { return !!(this.type & 8) }
+    get isNewCombo() { return !!(this.type & 4) }
+}
