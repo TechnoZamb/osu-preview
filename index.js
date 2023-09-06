@@ -18,6 +18,9 @@ var player, progressBar;
 export let beatmap, skin;
 export let bgdim = 1;
 
+var spinnerspinSource;
+var gainNode;
+
 
 window.addEventListener("load", async (e) => {
     document.querySelector("#play").addEventListener("click", e => player.play())
@@ -64,7 +67,11 @@ window.addEventListener("load", async (e) => {
     progressBar.onFrame = frame;
     progressBar.onResume = queueHitsounds;
 
-    player.currentTime = 11.1//parseInt(beatmap.General.PreviewTime) / 1000;
+    gainNode = player.audioContext.createGain();
+    gainNode.gain.value = 0.3;
+    gainNode.connect(player.audioContext.destination);
+
+    player.currentTime = 0//parseInt(beatmap.General.PreviewTime) / 1000;
 
     // necessary to sync music and hitsounds
     player.play();
@@ -76,6 +83,15 @@ window.addEventListener("load", async (e) => {
 
 function frame(time) {
     document.querySelector("#fps").innerHTML = time;
+
+    time *= 1000;
+
+    if (spinnerspinSource) {
+        const thisSpinner = beatmap.HitObjects.find(x => x.isSpinner && x.time <= time && time < x.endTime);
+        if (thisSpinner) {
+            spinnerspinSource.playbackRate.value = 0.45 + (time - thisSpinner.time) / thisSpinner.duration * 1.82;
+        }
+    }
 
     render.render(time);
 }
@@ -89,36 +105,45 @@ const queueHitsounds = (timeFrom) => {
     for (let i = 0; i < queuedHitsounds.length; i++) {
         queuedHitsounds[i].stop(0);
     }
+    try {
+        spinnerspinSource.stop(0);
+    } catch {}
 
     queuedHitsounds = [];
 
     let source;
 
     for (let obj of beatmap.HitObjects) {
-        if (obj.time <= timeFrom) {
+        if (obj.time + (obj.isSlider ? obj.duration * obj.slides : obj.isSpinner ? obj.endTime - obj.time : 0) <= timeFrom) {
             continue;
         }
 
-        const playSound = (set, sound, index, time) => {
-            const soundName = `${[, "normal", "soft", "drum"][set]}-hit${["normal", "whistle", "finish", "clap"][sound]}${index}`;
-            source = player.audioContext.createBufferSource();
-            source.buffer = skin.hitSounds[soundName];
-            source.connect(player.audioContext.destination);
-            source.start((obj.time - timeFrom + (time ?? 0)) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
-            queuedHitsounds.push(source);
+        const playSound = (sound, time) => {
+            time = obj.time - timeFrom + (time ?? 0);
+            if (time > 0) {
+                source = player.audioContext.createBufferSource();
+                source.buffer = skin.hitSounds[sound];
+                source.connect(gainNode);
+                source.start(time / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+                queuedHitsounds.push(source);
+            }
         };
+        const composeSound = (set, sound, index, time) => {
+            const soundName = `${[, "normal", "soft", "drum"][set]}-hit${["normal", "whistle", "finish", "clap"][sound]}${index}`;
+            playSound(soundName, time);
+        }
 
         if (obj.isSlider) {
             // for each slide
             for (let i = 0; i <= obj.slides; i++) {
                 for (let j = 1; j < 4; j++) {
                     if (obj.edgeSounds[i] & (2 ** j)) {
-                        playSound(obj.edgeSets[i][1], j, obj.hitSample[2], obj.duration * i);
+                        composeSound(obj.edgeSets[i][1], j, obj.hitSample[2], obj.duration * i);
                     }
                 }
 
                 if (obj.edgeSounds[i] == 0 || parseInt(skin.LayeredHitSounds)) {
-                    playSound((obj.edgeSets[i][0] ?? 1), 0, obj.hitSample[2], obj.duration * i);
+                    composeSound((obj.edgeSets[i][0] ?? 1), 0, obj.hitSample[2], obj.duration * i);
                 }
             }
 
@@ -127,7 +152,7 @@ const queueHitsounds = (timeFrom) => {
             source = player.audioContext.createBufferSource();
             source.buffer = skin.hitSounds[soundName];
             source.loop = true;
-            source.connect(player.audioContext.destination);
+            source.connect(gainNode);
             source.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
             source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
             queuedHitsounds.push(source);
@@ -136,36 +161,53 @@ const queueHitsounds = (timeFrom) => {
             const ticks = getSliderTicks(obj, true);
             soundName = `${[, "normal", "soft", "drum"][obj.hitSample[0]]}-slidertick${obj.hitSample[2]}`;
 
-            const x = (i, t) => {
-                source = player.audioContext.createBufferSource();
-                source.buffer = skin.hitSounds[soundName];
-                source.connect(player.audioContext.destination);
-                source.start((obj.time - timeFrom + obj.duration * i + t) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
-                queuedHitsounds.push(source);
-            }
-
             for (let i = 0; i < obj.slides; i++) {
                 if (i % 2 == 0) {
                     for (let j = 0; j < ticks.length; j++) {
-                        x(i, ticks[j]);
+                        playSound(soundName, obj.duration * i + ticks[j]);
                     }
                 }
                 else {
                     for (let j = ticks.length - 1; j >= 0; j--) {
-                        x(i, obj.duration - ticks[j]);
+                        playSound(soundName, obj.duration * i + obj.duration - ticks[j]);
                     }
                 }
+            }
+        }
+        else if (obj.isSpinner) {
+            for (let i = 1; i < 4; i++) {
+                if (obj.hitSounds & (2 ** i)) {
+                    composeSound(obj.hitSample[1], i, obj.hitSample[2], obj.duration);
+                }
+            }
+
+            if (obj.hitSounds == 0 || parseInt(skin.LayeredHitSounds)) {
+                composeSound(obj.hitSample[0], 0, obj.hitSample[2], obj.duration);
+            }
+
+            // spinner spin
+            spinnerspinSource = player.audioContext.createBufferSource();
+            spinnerspinSource.buffer = skin.hitSounds["spinnerspin"];
+            spinnerspinSource.loop = true;
+            spinnerspinSource.connect(gainNode);
+            spinnerspinSource.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
+            spinnerspinSource.stop((obj.endTime - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+
+            // spinner bonus
+            let j = 0;
+            for (let i = obj.duration / 1.95; i < obj.duration; i += 160/*125*/) {
+                playSound("spinnerbonus", i);j++;
             }
         }
         else {
             for (let i = 1; i < 4; i++) {
                 if (obj.hitSounds & (2 ** i)) {
-                    playSound(obj.hitSample[1], i, obj.hitSample[2]);
+                    composeSound(obj.hitSample[1], i, obj.hitSample[2]);
                 }
             }
 
             if (obj.hitSounds == 0 || parseInt(skin.LayeredHitSounds)) {
-                playSound(obj.hitSample[0], 0, obj.hitSample[2]);
+                composeSound(obj.hitSample[0], 0, obj.hitSample[2]);
             }
         }
     }
@@ -396,6 +438,7 @@ class HitObject {
         }
         else if (this.isSpinner) {
             this.endTime = validateInt(obj[5], "endTime");
+            this.duration = this.endTime - this.time;
             hitSample(6);
         }
         else {

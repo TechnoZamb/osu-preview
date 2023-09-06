@@ -422,7 +422,8 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                 }
             }
             if (obj.isSpinner) {
-                // TODO
+                soundSet.add("spinnerspin|");
+                soundSet.add("spinnerbonus|");
             }
 
             for (let i = 1; i < 4; i++) {

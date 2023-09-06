@@ -106,7 +106,6 @@ export function render(time) {
     }
 
     // find first (last in hitobjects list) object to paint
-    time *= 1000;
     //var index = binarySearch(main.beatmap.HitObjects, time + main.beatmap.preempt);
     var index = main.beatmap.HitObjects.length - 1;
 
@@ -115,7 +114,7 @@ export function render(time) {
     while (index >= 0) {
         const obj = main.beatmap.HitObjects[index];
 
-        if (obj.time + (obj.isSlider ? obj.duration * obj.slides : (obj.isSpinner ? obj.endTime - obj.time : 0)) + main.beatmap.fadeout < time ||
+        if (obj.time + (obj.isSlider ? obj.duration * obj.slides : (obj.isSpinner ? obj.duration : 0)) + main.beatmap.fadeout < time ||
             obj.time - main.beatmap.preempt > time) {
             index--;
             continue;
@@ -368,19 +367,19 @@ export function render(time) {
                 const pow = 2;
                 const maxRPM = 477;
                 // time it takes to reach maxRPM
-                const timemaxRPM = (obj.endTime - obj.time) / 10;
+                const timemaxRPM = obj.duration / 10;
                 ctx.save();
                 ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / timemaxRPM, 1), pow) / pow * timemaxRPM
-                    + clamp(0, time - obj.time - timemaxRPM, obj.endTime - obj.time - timemaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                    + clamp(0, time - obj.time - timemaxRPM, obj.duration - timemaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
                 ctx.restore();
 
                 // spinner metre
                 sprite = main.skin["spinner-metre"];
-                const barN = Math.floor(clamp(0, (time - obj.time) / (obj.endTime - obj.time) / 0.45, 1) * 10);
+                const barN = Math.floor(clamp(0, (time - obj.time) / obj.duration / 0.45, 1) * 10);
                 ctx.drawImage(sprite,
-                    0, (10 - barN) * (768 - 34) / 10 /** fieldSize[1] / 600*/ * sprite.naturalHeight / sprite.height,
+                    0, (10 - barN) * (768 - 34) / 10 * sprite.naturalHeight / sprite.height,
                     sprite.naturalWidth, barN * (768 - 34) / 10 * sprite.naturalHeight / sprite.height,
                     canvas.width / 2 - 512 * fieldSize[0] / 800, (canvas.height / 2 - (383 - 34) * fieldSize[1] / 600) + (10 - barN) * (768 - 34) / 10 * fieldSize[1] / 600,
                     sprite.width * fieldSize[0] / 800, barN * (768 - 34) / 10 * fieldSize[1] / 600
@@ -388,15 +387,15 @@ export function render(time) {
             }
             else {
                 const pow = 2;
-                const baseTimeMaxRPM = (obj.endTime - obj.time) / 10;
-                const scale = 0.8 + easierOut(clamp(0, (time - obj.time) / ((obj.endTime - obj.time) * 0.45), 1)) * 0.2;
+                const baseTimeMaxRPM = (obj.duration) / 10;
+                const scale = 0.8 + easierOut(clamp(0, (time - obj.time) / (obj.duration * 0.45), 1)) * 0.2;
                 let maxRPM, timeMaxRPM;
 
                 // spinner glow
                 sprite = main.skin["spinner-glow"][0];
                 const tempAlpha = ctx.globalAlpha;
                 if (time < obj.endTime) {
-                    ctx.globalAlpha = clamp(0, (time - obj.time) / ((obj.endTime - obj.time) * 0.45), 1);
+                    ctx.globalAlpha = clamp(0, (time - obj.time) / (obj.duration * 0.45), 1);
                 }
                 else {
                     ctx.globalAlpha = clamp(0, (obj.endTime + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
@@ -414,7 +413,7 @@ export function render(time) {
                 ctx.save();
                 ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / baseTimeMaxRPM, 1), pow) / pow * baseTimeMaxRPM
-                    + clamp(0, time - obj.time - baseTimeMaxRPM, obj.endTime - obj.time - baseTimeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                    + clamp(0, time - obj.time - baseTimeMaxRPM, obj.duration - baseTimeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
                 ctx.restore();
 
@@ -426,7 +425,7 @@ export function render(time) {
                 ctx.save();
                 ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / timeMaxRPM, 1), pow) / pow * timeMaxRPM
-                    + clamp(0, time - obj.time - timeMaxRPM, obj.endTime - obj.time - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                    + clamp(0, time - obj.time - timeMaxRPM, obj.duration - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
                 ctx.restore();
 
@@ -437,7 +436,7 @@ export function render(time) {
                 ctx.save();
                 ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / timeMaxRPM, 1), pow) / pow * timeMaxRPM
-                    + clamp(0, time - obj.time - timeMaxRPM, obj.endTime - obj.time - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
+                    + clamp(0, time - obj.time - timeMaxRPM, obj.duration - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
                 ctx.restore();
 
@@ -453,19 +452,19 @@ export function render(time) {
             const size2 = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
             ctx.save();
             ctx.translate(osuPx2screenPx(obj.x) + margins[0], osuPx2screenPx(obj.y) + margins[1]);
-            ctx.rotate(-clamp(0, time - obj.time, obj.endTime - obj.time) / 1000 / 60 * maxRPM * Math.PI * 2);
+            ctx.rotate(-clamp(0, time - obj.time, obj.duration) / 1000 / 60 * maxRPM * Math.PI * 2);
             ctx.drawImage(sprite, -size2[0] / 2, -size2[1] / 2 - 100, size2[0], size2[1]);
             ctx.restore();
 
             // approach circle
             sprite = main.skin["spinner-approachcircle"];
-            const approachScale = 0.05 + clamp(0, (obj.endTime - time) / (obj.endTime - obj.time), 1) * 0.95;
+            const approachScale = 0.05 + clamp(0, (obj.endTime - time) / obj.duration, 1) * 0.95;
             size = [osuPx2screenPx(sprite.width) * 1.16 * approachScale, osuPx2screenPx(sprite.height) * 1.16 * approachScale];
             ctx.drawImage(sprite, osuPx2screenPx(256) + margins[0] - size[0] / 2,
                 osuPx2screenPx(192) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // spinner clear
-            const temp = time - obj.time - (obj.endTime - obj.time) * 0.45;
+            const temp = time - obj.time - obj.duration * 0.45;
             if (temp > 0) {
                 sprite = main.skin["spinner-clear"];
                 const scale = temp < 225 ? (1.7 - easeOut(clamp(0, temp / 225, 1))) : (0.7 + clamp(0, (temp - 225) / 141, 1) * 0.2);

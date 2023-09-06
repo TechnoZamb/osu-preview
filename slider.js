@@ -165,7 +165,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                     for (let j = 0; j < points.length; j++) {
                         // we have surpassed the desired length
                         if (actualLength + lengths[j] > length) {
-                            const prevp = points[j - 1] ?? [pointsBuffer[0][0], pointsBuffer[0][1]];
+                            const prevp = points[j - 1] ?? [pointsBuffer[0].x, pointsBuffer[0].y];
                             const prevl = lengths[j - 1] ?? 0;
                             const ratio = (length - (prevl + actualLength)) / (lengths[j] - prevl);
                             if (draw) {
