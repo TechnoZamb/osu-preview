@@ -2,7 +2,7 @@ import { MusicPlayer } from "./player.js";
 import { ProgressBar } from "./progress.js";
 import { parseSkin } from "./skin.js";
 import * as render from "./render.js";
-import { sleep } from "./functions.js";
+import { sleep, clamp } from "./functions.js";
 import { getSliderTicks } from "./slider.js";
 const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
 
@@ -19,7 +19,12 @@ export let beatmap, skin;
 export let bgdim = 1;
 
 var spinnerspinSource;
-var gainNode;
+
+export const volumes = {
+    general: [0.3, null],
+    music: [0, null],
+    effects: [1, null]
+};
 
 
 window.addEventListener("load", async (e) => {
@@ -67,9 +72,6 @@ window.addEventListener("load", async (e) => {
     progressBar.onFrame = frame;
     progressBar.onResume = queueHitsounds;
 
-    gainNode = player.audioContext.createGain();
-    gainNode.gain.value = 0.3;
-    gainNode.connect(player.audioContext.destination);
 
     player.currentTime = 0//parseInt(beatmap.General.PreviewTime) / 1000;
 
@@ -89,7 +91,7 @@ function frame(time) {
     if (spinnerspinSource) {
         const thisSpinner = beatmap.HitObjects.find(x => x.isSpinner && x.time <= time && time < x.endTime);
         if (thisSpinner) {
-            spinnerspinSource.playbackRate.value = 0.45 + (time - thisSpinner.time) / thisSpinner.duration * 1.82;
+            spinnerspinSource.playbackRate.value = 0.45 + (time - thisSpinner.time) / thisSpinner.duration * 1.6/*1.82*/;
         }
     }
 
@@ -97,6 +99,8 @@ function frame(time) {
 }
 
 let queuedHitsounds = [];
+const gainNodes = [];
+
 const queueHitsounds = (timeFrom) => {
 
     timeFrom *= 1000;
@@ -118,9 +122,17 @@ const queueHitsounds = (timeFrom) => {
             continue;
         }
 
-        const playSound = (sound, time) => {
+        const playSound = (sound, time, force = false) => {
             time = obj.time - timeFrom + (time ?? 0);
-            if (time > 0) {
+            if (force || time > 0) {
+                let gainNode = gainNodes[obj.hitSample[3]];
+                if (!gainNode) {
+                    gainNode = player.audioContext.createGain();
+                    gainNode.gain.value = obj.hitSample[3] / 100;
+                    gainNode.connect(volumes.effects[1]);
+                    gainNodes[obj.hitSample[3]] = gainNode;
+                }
+
                 source = player.audioContext.createBufferSource();
                 source.buffer = skin.hitSounds[sound];
                 source.connect(gainNode);
@@ -149,13 +161,12 @@ const queueHitsounds = (timeFrom) => {
 
             // looping sound
             let soundName = `${[, "normal", "soft", "drum"][obj.hitSample[1]]}-slider${["slide", "whistle"][obj.hitSounds & 2 ? 1 : 0]}${obj.hitSample[2]}`;
-            source = player.audioContext.createBufferSource();
-            source.buffer = skin.hitSounds[soundName];
-            source.loop = true;
-            source.connect(gainNode);
-            source.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
-            source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
-            queuedHitsounds.push(source);
+            source = null;
+            playSound(soundName, 0, true);
+            if (source != null) {
+                source.loop = true;
+                source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+            }
 
             // slider ticks
             const ticks = getSliderTicks(obj, true);
@@ -189,14 +200,17 @@ const queueHitsounds = (timeFrom) => {
             spinnerspinSource = player.audioContext.createBufferSource();
             spinnerspinSource.buffer = skin.hitSounds["spinnerspin"];
             spinnerspinSource.loop = true;
-            spinnerspinSource.connect(gainNode);
+            spinnerspinSource.connect(volumes.effects[1]);  // spinnerspin is always as 100% volume
             spinnerspinSource.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
             spinnerspinSource.stop((obj.endTime - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
 
             // spinner bonus
-            let j = 0;
-            for (let i = obj.duration / 1.95; i < obj.duration; i += 160/*125*/) {
-                playSound("spinnerbonus", i);j++;
+            for (let i = obj.duration / 1.95; i < obj.duration; i += 140/*125*/) {
+                // spinnerbonus is always at 100% volume
+                const vol = obj.hitSample[3];
+                obj.hitSample[3] = 100;
+                playSound("spinnerbonus", i);
+                obj.hitSample[3] = vol;
             }
         }
         else {
@@ -350,6 +364,9 @@ const parseBeatmap = (text) => {
         if (obj.hitSample[2] == 0 || obj.isSlider) {    // sliders ignore the index, for some reason
             obj.hitSample[2] = result.TimingPoints[tpIndex - 1][4];
         }
+        if (obj.hitSample[3] == 0) {
+            obj.hitSample[3] = clamp(0, result.TimingPoints[tpIndex - 1][5], 100);
+        }
 
         if (obj.isSlider) {
             for (let x of obj.edgeSets) {
@@ -388,6 +405,7 @@ class HitObject {
 
         const hitSample = (index2) => {
             this.hitSample = obj[index2]?.split?.(":").map((x, i) => (i != 4 ? validateInt(x, "hitSample") : x)) ?? [0,0,0,0,""];
+            this.hitSample[3] = clamp(0, this.hitSample[3], 100);
         };
 
         this.x = validateInt(obj[0], "x");

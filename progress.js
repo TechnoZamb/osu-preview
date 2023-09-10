@@ -49,7 +49,6 @@ export class ProgressBar {
     frame() {
         var deltaT = (performance.now() - this.time) / 10;
         var actualValue = this.actualValue, targetValue = this.targetValue;
-        var merda = false;
 
         if (targetValue != -1) {
             var diff = targetValue - actualValue;
@@ -101,9 +100,6 @@ export class ProgressBar {
         
         window.requestAnimationFrame(() => this.frame());
         
-        if (merda) {
-            
-        }
         this.time = performance.now();
     }
 }

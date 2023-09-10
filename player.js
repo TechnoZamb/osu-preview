@@ -1,4 +1,5 @@
 import { clamp } from "./functions.js";
+import { volumes } from "./index.js";
 
 export class MusicPlayer {
     static #initializing = false;
@@ -13,11 +14,30 @@ export class MusicPlayer {
         MusicPlayer.#initializing = true;
         const player = new MusicPlayer();
 
-        if (!(file instanceof Blob))
-            file = await fetch(file).then(r => r.blob());        
+        if (!(file instanceof Blob)) {
+            file = await fetch(file).then(r => r.blob());
+        }
         
         player.audioContext = new AudioContext();
         player.audioContext.suspend();
+
+        // create gain nodes for volumes
+        var gainNode = player.audioContext.createGain();
+        gainNode.gain.value = volumes.general[0];
+        gainNode.connect(player.audioContext.destination);
+        volumes.general[1] = gainNode;
+
+        gainNode = player.audioContext.createGain();
+        gainNode.gain.value = volumes.effects[0];
+        gainNode.connect(volumes.general[1]);
+        volumes.effects[1] = gainNode;
+
+        gainNode = player.audioContext.createGain();
+        gainNode.gain.value = volumes.music[0];
+        gainNode.connect(volumes.general[1]);
+        volumes.music[1] = gainNode;
+
+        // load song
         const buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
         const [ forwards, backwards ] = WAVBuilder.build(buffer);
         
@@ -27,6 +47,11 @@ export class MusicPlayer {
         player.forwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(forwards), oncanplaythrough: callback1 });
         player.backwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(backwards), oncanplaythrough: callback2 });
         await Promise.all(promises);
+
+        const f = player.audioContext.createMediaElementSource(player.forwards);
+        const b = player.audioContext.createMediaElementSource(player.backwards);
+        f.connect(volumes.music[1]);
+        b.connect(volumes.music[1]);
         
         player.duration = player.forwards.duration;
         player.playbackRate = 1;
