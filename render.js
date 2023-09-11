@@ -5,13 +5,14 @@ import { asyncLoadImage } from "./skin.js";
 
 const canvasSize = [800, 600];
 const minMargin = 20;
-const drawGrid = true;
+const drawGrid = false;
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 export let bezierSegmentMaxLengthSqrd;       // in osu pixels, squared
 
 let canvas, ctx, bufferCanvas, bufferCtx;
 let bg;
+let currentBgdim, lastKiaiTime = -1, wasInKiai = false;
 export let fieldSize = [], margins, bgSize;
 export let osuPx2screenPx;
 let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
@@ -68,8 +69,34 @@ export function render(time) {
     // draw background
     ctx.drawImage(bg, bgSize[3], bgSize[2], bgSize[0], bgSize[1]);
 
+    // find if we're in a kiai
+    let i = main.beatmap.TimingPoints.length - 1;
+    while (i > 0 && main.beatmap.TimingPoints[i][0] > time) {
+        i--;
+    }
+    if (!main.beatmap.TimingPoints[i][7] & 1) { // not in a kiai
+        wasInKiai = false;
+    }
+    else if (!wasInKiai) {
+        lastKiaiTime = performance.now();
+        wasInKiai = true;
+    }
+ 
+    currentBgdim = main.bgdim;
+    if (currentBgdim < 1 && lastKiaiTime != -1) {
+        const now = performance.now();
+        if (now - lastKiaiTime < 250) {
+            currentBgdim -= 0.07 * (now - lastKiaiTime) / 250;
+        }
+        else if (now - lastKiaiTime < 430) {
+            currentBgdim -= 0.07;
+        }
+        else if (now - lastKiaiTime < 2000) {
+            currentBgdim -= 0.07 * (1 - (now - lastKiaiTime - 430) / (2000 - 430));
+        }
+    }
     // dim background
-    ctx.fillStyle = `rgb(0,0,0,${main.bgdim})`;
+    ctx.fillStyle = `rgb(0,0,0,${currentBgdim})`;
     ctx.fillRect(0, 0, canvasSize[0], canvasSize[1]);
 
     // draw grid

@@ -2,8 +2,8 @@ import { MusicPlayer } from "./player.js";
 import { ProgressBar } from "./progress.js";
 import { parseSkin } from "./skin.js";
 import * as render from "./render.js";
-import { sleep, clamp } from "./functions.js";
-import { getSliderTicks } from "./slider.js";
+import { sleep, clamp, distance } from "./functions.js";
+import { getFollowPosition, getSliderTicks } from "./slider.js";
 const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
 
 
@@ -16,13 +16,13 @@ const diff = [
 var player, progressBar;
 
 export let beatmap, skin;
-export let bgdim = 1;
+export let bgdim = 0.9;
 
 var spinnerspinSource;
 
 export const volumes = {
     general: [0.3, null],
-    music: [0, null],
+    music: [1, null],
     effects: [1, null]
 };
 
@@ -58,6 +58,8 @@ window.addEventListener("load", async (e) => {
         beatmap.fadein = 800 - 500 * (ar - 5) / 5;
     }
     beatmap.fadeout = 233;
+
+    objStacking();
 
     const bgURL = await getBackgroundPictureURL(beatmapFiles, beatmap);
 
@@ -391,6 +393,110 @@ const parseBeatmap = (text) => {
     return result;
 }
 
+const objStacking = () => {
+    //#region copied and adapted from https://gist.github.com/peppy/1167470
+    const StackOffset = beatmap.radius / 10; //ymmv
+
+    const STACK_LENIENCE = 3;
+
+    //Reverse pass for stack calculation.
+    for (let i = beatmap.HitObjects.length - 1; i > 0; i--)
+    {
+        let n = i;
+        /* We should check every note which has not yet got a stack.
+        * Consider the case we have two interwound stacks and this will make sense.
+        * 
+        * o <-1      o <-2
+        *  o <-3      o <-4
+        * 
+        * We first process starting from 4 and handle 2,
+        * then we come backwards on the i loop iteration until we reach 3 and handle 1.
+        * 2 and 1 will be ignored in the i loop because they already have a stack value.
+        */
+
+        let objectI = beatmap.HitObjects[i];
+
+        if (objectI.StackCount != 0 || objectI.isSpinner) continue;
+
+        /* If this object is a hitcircle, then we enter this "special" case.
+        * It either ends with a stack of hitcircles only, or a stack of hitcircles that are underneath a slider.
+        * Any other case is handled by the "is Slider" code below this.
+        */
+        if (objectI.isHitCircle)
+        {
+            while (--n >= 0) {
+                const objectN = beatmap.HitObjects[n];
+
+                if (objectN.isSpinner) continue;
+
+                if (objectI.time - (beatmap.preempt * beatmap.General.StackLeniency) > objectN.time + (objectN.isSlider ? objectN.duration * objectN.slides : 0))
+                    //We are no longer within stacking range of the previous object.
+                    break;
+
+                /* This is a special case where hticircles are moved DOWN and RIGHT (negative stacking) if they are under the *last* slider in a stacked pattern.
+                *    o==o <- slider is at original location
+                *        o <- hitCircle has stack of -1
+                *         o <- hitCircle has stack of -2
+                */
+                if (objectN.isSlider) {
+                    const endPos = objectN.slides % 2 ? getFollowPosition(objectN, objectN.pixelLength) : [objectN.x, objectN.y];
+
+                    if (distance(endPos, objectI) < STACK_LENIENCE) {
+                        const offset = objectI.StackCount - objectN.StackCount + 1;
+                        for (let j = n + 1; j <= i; j++) {
+                            //For each object which was declared under this slider, we will offset it to appear *below* the slider end (rather than above).
+                            if (distance(endPos, beatmap.HitObjects[j]) < STACK_LENIENCE)
+                                beatmap.HitObjects[j].StackCount -= offset;
+                        }
+
+                        //We have hit a slider.  We should restart calculation using this as the new base.
+                        //Breaking here will mean that the slider still has StackCount of 0, so will be handled in the i-outer-loop.
+                        break;
+                    }
+                }
+
+                if (distance(objectN, objectI) < STACK_LENIENCE) {
+                    //Keep processing as if there are no sliders.  If we come across a slider, this gets cancelled out.
+                    //NOTE: Sliders with start positions stacking are a special case that is also handled here.
+
+                    objectN.StackCount = objectI.StackCount + 1;
+                    objectI = objectN;
+                }
+            }
+        }
+        else if (objectI.isSlider)
+        {
+            /* We have hit the first slider in a possible stack.
+            * From this point on, we ALWAYS stack positive regardless.
+            */
+            while (--n >= 0) {
+                const objectN = beatmap.HitObjects[n];
+
+                if (objectN.isSpinner) continue;
+
+                //HitObjectSpannable spanN = objectN as HitObjectSpannable;
+
+                if (objectI.time - (beatmap.preempt * beatmap.General.StackLeniency) > objectN.time)
+                    //We are no longer within stacking range of the previous object.
+                    break;
+
+                if (distance((objectN.isSlider && objectN.slides % 1 ? getFollowPosition(objectN, objectN.pixelLength) : objectN), objectI) < STACK_LENIENCE) {
+                    objectN.StackCount = objectI.StackCount + 1;
+                    objectI = objectN;
+                }
+            }
+        }
+    }
+    //#endregion
+
+    for (let obj of beatmap.HitObjects) {
+        if (obj.StackCount != 0) {
+            obj.x -= StackOffset * obj.StackCount;
+            obj.y -= StackOffset * obj.StackCount;
+        }
+    }
+}
+
 
 
 class HitObject {
@@ -413,6 +519,7 @@ class HitObject {
         this.time = validateInt(obj[2], "time");
         this.type = validateInt(obj[3], "type");
         this.hitSounds = validateInt(obj[4], "hitSounds");
+        this.StackCount = 0;
 
         // can only be of 1 type
         if (this.isHitCircle + this.isSlider + this.isSpinner > 1) throwInvalidVal("type");

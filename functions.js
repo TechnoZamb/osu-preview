@@ -4,6 +4,15 @@ export const lerp = (min, max, t) => (max - min) * t + min;
 export const range = (low1, high1, low2, high2, t) => (t - low1) / (high1 - low1) * (high2 - low2) + low2;
 export const rgb = (val) => val.split?.(",").map?.(x => clamp(0, parseInt(x.trim()), 255)) ?? null;
 export const sleep = async (ms) => await new Promise(r => setTimeout(r, ms));
+export const distance = (p1, p2) => {
+    if (!(p1 instanceof Array)) p1 = [p1.x, p1.y];
+    if (!(p2 instanceof Array)) p2 = [p2.x, p2.y];
+    return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
+}
+export function urlJoin(...args) {
+    const parts = Array.from(Array.isArray(args[0]) ? args[0] : args);
+    return normalize(parts);
+}
 
 
 // https://github.com/jfromaniello/url-join/blob/main/lib/url-join.js
@@ -63,9 +72,4 @@ function normalize(strArray) {
     str = parts.shift() + (parts.length > 0 ? '?' : '') + parts.join('&');
 
     return str;
-}
-
-export function urlJoin(...args) {
-    const parts = Array.from(Array.isArray(args[0]) ? args[0] : args);
-    return normalize(parts);
 }
