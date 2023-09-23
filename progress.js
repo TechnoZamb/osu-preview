@@ -19,6 +19,7 @@ export class ProgressBar {
         this.progressBar.addEventListener("mousedown", e => {
             this.targetValue = e.offsetX / this.progressBar.clientWidth;
             this.dragging = true;
+            this.progressBar.setAttribute("hover", "hover");
         });
         window.addEventListener("mousemove", e => {
             if (this.dragging)
@@ -28,6 +29,7 @@ export class ProgressBar {
             if (this.dragging) {
                 this.dragging = false;
                 this.targetValue = clamp(0, (e.clientX - this.progressBar.getBoundingClientRect().left) / this.progressBar.clientWidth, 1);
+                this.progressBar.removeAttribute("hover");
             }
         });
         window.addEventListener("keydown", e => {

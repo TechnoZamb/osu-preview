@@ -3,7 +3,7 @@ import { mod, clamp, lerp, range, rgb } from "./functions.js";
 import { drawSlider, getFollowPosition, getSliderTicks } from "./slider.js";
 import { asyncLoadImage } from "./skin.js";
 
-const canvasSize = [800, 600];
+const canvasSize = [800, 540];
 const minMargin = 20;
 const drawGrid = false;
 
@@ -12,7 +12,8 @@ export let bezierSegmentMaxLengthSqrd;       // in osu pixels, squared
 
 let canvas, ctx, bufferCanvas, bufferCtx;
 let bg;
-let currentBgdim, lastKiaiTime = -1, wasInKiai = false;
+let lastKiaiTime = -1, wasInKiai = false;
+let lastBreakTime = -1, wasInBreak;
 export let fieldSize = [], margins, bgSize;
 export let osuPx2screenPx;
 let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
@@ -68,35 +69,9 @@ export function render(time) {
 
     // draw background
     ctx.drawImage(bg, bgSize[3], bgSize[2], bgSize[0], bgSize[1]);
-
-    // find if we're in a kiai
-    let i = main.beatmap.TimingPoints.length - 1;
-    while (i > 0 && main.beatmap.TimingPoints[i][0] > time) {
-        i--;
-    }
-    if (!main.beatmap.TimingPoints[i][7] & 1) { // not in a kiai
-        wasInKiai = false;
-    }
-    else if (!wasInKiai) {
-        lastKiaiTime = performance.now();
-        wasInKiai = true;
-    }
  
-    currentBgdim = main.bgdim;
-    if (currentBgdim < 1 && lastKiaiTime != -1) {
-        const now = performance.now();
-        if (now - lastKiaiTime < 250) {
-            currentBgdim -= 0.07 * (now - lastKiaiTime) / 250;
-        }
-        else if (now - lastKiaiTime < 430) {
-            currentBgdim -= 0.07;
-        }
-        else if (now - lastKiaiTime < 2000) {
-            currentBgdim -= 0.07 * (1 - (now - lastKiaiTime - 430) / (2000 - 430));
-        }
-    }
     // dim background
-    ctx.fillStyle = `rgb(0,0,0,${currentBgdim})`;
+    ctx.fillStyle = `rgb(0,0,0,${getBGDim(main.bgdim, time)})`;
     ctx.fillRect(0, 0, canvasSize[0], canvasSize[1]);
 
     // draw grid
@@ -588,6 +563,54 @@ export function render(time) {
     }
 
     adjustSliderGradientDivisions();
+}
+
+const getBGDim = (baseBgDim, time) => {
+    let currentBgdim = baseBgDim;
+
+    // break
+    let found = main.breaks.find(x => x[0] <= time && time <= x[1]);
+
+    const breakBGDimTime = 1000;
+    const now = performance.now();
+
+    if (lastBreakTime == -1) {
+        lastBreakTime = now - breakBGDimTime * 2;
+        wasInBreak = !!found;
+    }
+    else if ((found && !wasInBreak) || (!found && wasInBreak)) {
+        lastBreakTime = now - Math.max(breakBGDimTime - now + lastBreakTime, 0);
+        wasInBreak = !!found;
+    }
+
+    currentBgdim -= 0.25 * clamp(0, (wasInBreak ? now - lastBreakTime : lastBreakTime - now + breakBGDimTime) / breakBGDimTime, 1);
+
+    // kiai
+    let i = main.beatmap.TimingPoints.length - 1;
+    while (i > 0 && main.beatmap.TimingPoints[i][0] > time) {
+        i--;
+    }
+    if (!main.beatmap.TimingPoints[i][7] & 1) { // not in a kiai
+        wasInKiai = false;
+    }
+    else if (!wasInKiai) {
+        lastKiaiTime = now;
+        wasInKiai = true;
+    }
+
+    if (currentBgdim < 1 && lastKiaiTime != -1) {
+        if (now - lastKiaiTime < 200) {
+            currentBgdim -= 0.1 * (now - lastKiaiTime) / 200;
+        }
+        else if (now - lastKiaiTime < 430) {
+            currentBgdim -= 0.1;
+        }
+        else if (now - lastKiaiTime < 2000) {
+            currentBgdim -= 0.1 * (1 - (now - lastKiaiTime - 430) / (2000 - 430));
+        }
+    }
+
+    return currentBgdim;
 }
 
 const adjustSliderGradientDivisions = () => {

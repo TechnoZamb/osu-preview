@@ -13,7 +13,7 @@ export class MusicPlayer {
     static async init(file, onResume) {
         MusicPlayer.#initializing = true;
         const player = new MusicPlayer();
-
+        
         if (!(file instanceof Blob)) {
             file = await fetch(file).then(r => r.blob());
         }
@@ -45,7 +45,7 @@ export class MusicPlayer {
         let callback1, callback2;
         const promises = [ new Promise(r => callback1 = r), new Promise(r => callback2 = r) ];
         player.forwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(forwards), oncanplaythrough: callback1 });
-        player.backwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(backwards), oncanplaythrough: callback2 });
+        player.backwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(forwards), oncanplaythrough: callback2 });
         await Promise.all(promises);
 
         const f = player.audioContext.createMediaElementSource(player.forwards);

@@ -8,21 +8,22 @@ const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
 
 
 const diff = [
-    "katagiri - ch3rry (Short Ver.) (Inverse) [Blossom 1.1x (226bpm)].osu", 
+    "katagiri - ch3rry (Short Ver.) (Inverse) [Blossom].osu", 
     "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu", 
-    "sweet ARMS - Blade of Hope (TV Size) (Aruyy) [Expert].osu"
+    "yuikonnu - Chikyuu Saigo no Kokuhaku o (Fycho) [Skystar's Kokuhaku].osu"
 ][1];
 
 var player, progressBar;
 
 export let beatmap, skin;
-export let bgdim = 0.9;
+export let bgdim = 0.7;
+export let breaks;
 
 var spinnerspinSource;
 
 export const volumes = {
-    general: [0.3, null],
-    music: [1, null],
+    general: [0.2, null],
+    music: [0.5, null],
     effects: [1, null]
 };
 
@@ -73,9 +74,9 @@ window.addEventListener("load", async (e) => {
     progressBar = new ProgressBar("#progress-bar", player);
     progressBar.onFrame = frame;
     progressBar.onResume = queueHitsounds;
-
-
     player.currentTime = 0//parseInt(beatmap.General.PreviewTime) / 1000;
+
+    computeBreaks();
 
     // necessary to sync music and hitsounds
     player.play();
@@ -104,6 +105,7 @@ let queuedHitsounds = [];
 const gainNodes = [];
 
 const queueHitsounds = (timeFrom) => {
+    const audioOffset = 0.06;
 
     timeFrom *= 1000;
 
@@ -138,7 +140,7 @@ const queueHitsounds = (timeFrom) => {
                 source = player.audioContext.createBufferSource();
                 source.buffer = skin.hitSounds[sound];
                 source.connect(gainNode);
-                source.start(time / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+                source.start(Math.max(time / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset, 0));
                 queuedHitsounds.push(source);
             }
         };
@@ -167,7 +169,7 @@ const queueHitsounds = (timeFrom) => {
             playSound(soundName, 0, true);
             if (source != null) {
                 source.loop = true;
-                source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+                source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset);
             }
 
             // slider ticks
@@ -203,8 +205,8 @@ const queueHitsounds = (timeFrom) => {
             spinnerspinSource.buffer = skin.hitSounds["spinnerspin"];
             spinnerspinSource.loop = true;
             spinnerspinSource.connect(volumes.effects[1]);  // spinnerspin is always as 100% volume
-            spinnerspinSource.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
-            spinnerspinSource.stop((obj.endTime - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + 0.06);
+            spinnerspinSource.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
+            spinnerspinSource.stop((obj.endTime - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset);
 
             // spinner bonus
             for (let i = obj.duration / 1.95; i < obj.duration; i += 140/*125*/) {
@@ -256,7 +258,7 @@ const getBackgroundPictureURL = async (entries, beatmap) => {
 }
 
 const getSong = async (entries, beatmap) => {
-    const songFileName = beatmap.General.AudioFilename.trim();
+    const songFileName = beatmap.General.AudioFilename.trim();console.log(songFileName)
     return await entries[songFileName]?.getData(new BlobWriter());
 }
 
@@ -342,6 +344,7 @@ const parseBeatmap = (text) => {
         if (obj.isSlider) {
             obj.beatLength = result.TimingPoints[uninheritedTPIndex][1];
             obj.duration = obj.pixelLength / (result.Difficulty.SliderMultiplier * 100 * (inheritedTPIndex == -1 ? 1 : -100 / result.TimingPoints[inheritedTPIndex][1])) * result.TimingPoints[uninheritedTPIndex][1];
+            obj.endTime = obj.time + obj.duration;
             result.HitObjects.splice(i, 1);
             sliders.push(obj);
             i--;
@@ -497,6 +500,30 @@ const objStacking = () => {
     }
 }
 
+const computeBreaks = () => {
+    // find first and last hitobj in chronological order (not necessarily the first and last in the array bc i swap them)
+    let firstObj, lastObj;
+    for (let obj of beatmap.HitObjects) {
+        if (!firstObj || firstObj.time > obj.time) {
+            firstObj = obj;
+        }
+        if (!lastObj || lastObj.endTime < obj.endTime) {
+            lastObj = obj;
+        }
+    }
+    
+    breaks = [];
+    if (firstObj.time >= 4000) {
+        breaks.push([0, firstObj.time - 550]);
+    }
+    for (let event of beatmap.Events) {
+        if (parseInt(event[0]) == 2) {
+            breaks.push([parseInt(event[1]), parseInt(event[2])]);
+        }
+    }
+    breaks.push([lastObj.endTime, player.duration * 1000]);
+}
+
 
 
 class HitObject {
@@ -567,6 +594,7 @@ class HitObject {
             hitSample(6);
         }
         else {
+            this.endTime = this.time;
             hitSample(5);
         }
     }

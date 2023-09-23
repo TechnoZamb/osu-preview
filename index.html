@@ -6,38 +6,116 @@
     <script type="module" src="../zip.min.js"></script>
     <script src="index.js" type="module" defer></script>
     <style>
+        @font-face {
+            font-family: Torus;
+            src: url(Torus-Light.otf);
+        }
         html, body {
             user-select: none;
+            width: 800px;
+            height: 600px;
+            overflow: hidden;
+            background-color: gray;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            background-color: #302E38;
+            color: white;
+            font-family: 'Torus';
+        }
+
+        main {
+            position: relative;
+        }
+        canvas {
+            display: block;
+            background: green;
+        }
+        #progress-bar-wrapper {
+            position: absolute;
+            width: 100%;
+            height: 18px;
+            bottom: 0;
+            cursor: pointer;
         }
         #progress-bar {
-            width: 1200px;
-            height: 20px;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 8px;
             background-color: rgb(66, 66, 66);
-            border-radius: 8px;
             overflow: hidden;
-            cursor: pointer;
+            transition: height 0.3s;
+        }
+        #progress-bar-wrapper:hover > div, #progress-bar[hover] {
+            height: 18px;
         }
         .progress {
             background-color: #dddd2c;
             width: 50%;
             height: 20px;
         }
-        canvas {
-            display: block;
-            background: green;
+
+        .hidden {
+            display: none;
+        }
+
+        footer {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+        #footer-title {
+        }
+        #footer-buttons {
+            margin-left: auto;
+            margin-right: 12px;
+        }
+        .btn-big {
+            width: 160px;
+            border: none;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 20px;
+            padding: 7px 0;
+            border-radius: 1000px;
+            margin-left: 8px;
+            cursor: pointer;
+            color: inherit;
+        }
+        .btn-big#download-btn {
+            background: #f4447d;
+        }
+        .btn-big#more-btn {
+            background: rgb(96, 58, 220);
         }
     </style>
-    <title>Document</title>
 </head>
 <body>
-    <div id="progress-bar">
-        <div class="progress"></div>
-    </div>
-    <button id="play">play</button>
-    <button id="pause">pause</button>
-    <canvas></canvas>
-    <input type="range" min="0" max="1" step="0.01" style="width: 800px;height: 30px;">
-    <input type="text" oninput="player.currentTime = this.value">
-    <span id="fps"></span>
+    <main>
+        <canvas width="800" height="540"></canvas>
+        <div id="progress-bar-wrapper">
+            <div id="progress-bar">
+                <div class="progress"></div>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="hidden">
+            <button id="play">play</button>
+            <button id="pause">pause</button>
+            <input type="range" min="0" max="1" step="0.01" style="width: 800px;height: 30px;">
+            <input type="text" oninput="player.currentTime = this.value">
+            <span id="fps"></span>
+        </div>
+        <div id="footer-title">
+            <span>osu! preview</span>
+        </div>
+        <div id="footer-buttons">
+            <button class="btn-big"  id="more-btn">More...</button>
+            <button id="download-btn" class="btn-big">Download</button>
+        </div>
+    </footer>
 </body>
 </html>
