@@ -5,92 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script type="module" src="../zip.min.js"></script>
     <script src="index.js" type="module" defer></script>
-    <style>
-        @font-face {
-            font-family: Torus;
-            src: url(Torus-Light.otf);
-        }
-        html, body {
-            user-select: none;
-            width: 800px;
-            height: 600px;
-            overflow: hidden;
-            background-color: gray;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-            background-color: #302E38;
-            color: white;
-            font-family: 'Torus';
-        }
-
-        main {
-            position: relative;
-        }
-        canvas {
-            display: block;
-            background: green;
-        }
-        #progress-bar-wrapper {
-            position: absolute;
-            width: 100%;
-            height: 18px;
-            bottom: 0;
-            cursor: pointer;
-        }
-        #progress-bar {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 8px;
-            background-color: rgb(66, 66, 66);
-            overflow: hidden;
-            transition: height 0.3s;
-        }
-        #progress-bar-wrapper:hover > div, #progress-bar[hover] {
-            height: 18px;
-        }
-        .progress {
-            background-color: #dddd2c;
-            width: 50%;
-            height: 20px;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        footer {
-            flex: 1;
-            display: flex;
-            align-items: center;
-        }
-        #footer-title {
-        }
-        #footer-buttons {
-            margin-left: auto;
-            margin-right: 12px;
-        }
-        .btn-big {
-            width: 160px;
-            border: none;
-            font-family: inherit;
-            font-weight: 600;
-            font-size: 20px;
-            padding: 7px 0;
-            border-radius: 1000px;
-            margin-left: 8px;
-            cursor: pointer;
-            color: inherit;
-        }
-        .btn-big#download-btn {
-            background: #f4447d;
-        }
-        .btn-big#more-btn {
-            background: rgb(96, 58, 220);
-        }
-    </style>
+    <script src="https://kit.fontawesome.com/ff0d365f19.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="style.css"></link>
 </head>
 <body>
     <main>
@@ -98,6 +14,20 @@
         <div id="progress-bar-wrapper">
             <div id="progress-bar">
                 <div class="progress"></div>
+            </div>
+        </div>
+        <div id="volume-control">
+            <div class="volume-category" id="volume-general">
+                <img src="assets/volume-high-solid.svg">
+                <div class="volume-slider"></div>
+            </div>
+            <div class="volume-category" id="volume-music">
+                <img src="assets/music-solid.svg">
+                <div class="volume-slider"></div>
+            </div>
+            <div class="volume-category" id="volume-effects">
+                <img src="assets/drum-solid.svg">
+                <div class="volume-slider"></div>
             </div>
         </div>
     </main>

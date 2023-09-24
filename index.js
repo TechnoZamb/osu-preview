@@ -77,6 +77,11 @@ window.addEventListener("load", async (e) => {
     player.currentTime = 0//parseInt(beatmap.General.PreviewTime) / 1000;
 
     computeBreaks();
+    document.querySelector("#progress-bar").style["background"] =
+        "linear-gradient(90deg" + breaks.reduce((x, y) => {
+            const [a, b] = [(y[0] / player.duration / 10).toFixed(2), (y[1] / player.duration / 10).toFixed(2)];
+            return x + `,var(--bg-color) ${a}%,var(--break-color) ${a}%,var(--break-color) ${b}%,var(--bg-color) ${b}%`
+        }, "") + ")";
 
     // necessary to sync music and hitsounds
     player.play();
@@ -85,6 +90,58 @@ window.addEventListener("load", async (e) => {
     player.play();
     player.pause();
 });
+
+let timeout;
+
+
+const volumeControl = document.querySelector("#volume-control");
+let lastScrolls = [];
+
+document.addEventListener("wheel", e => {
+    const now = performance.now();
+    lastScrolls.push(now);
+
+    lastScrolls = lastScrolls.filter(x => now - x < 400);
+    const val = e.deltaY / 10000 * lastScrolls.length;
+
+    volumeControl.setAttribute("shown", "");
+
+    if (document.querySelector("#volume-music:hover")) {
+        volumes.music[0] = volumes.music[1].gain.value = clamp(0, volumes.music[0] - val, 1);
+        volumeControl.querySelector("#volume-music").style.setProperty("--value", volumes.music[0]);
+    }
+    else if (document.querySelector("#volume-effects:hover")) {
+        volumes.effects[0] = volumes.effects[1].gain.value = clamp(0, volumes.effects[0] - val, 1);
+        volumeControl.querySelector("#volume-effects").style.setProperty("--value", volumes.effects[0]);
+    }
+    else {
+        volumes.general[0] = volumes.general[1].gain.value = clamp(0, volumes.general[0] - val, 1);
+        volumeControl.querySelector("#volume-general").style.setProperty("--value", volumes.general[0]);
+        volumeControl.querySelector("#volume-general > img").src =
+           (volumes.general[0] == 0 ? "assets/volume-xmark-solid.svg" :
+            volumes.general[0] >= 0.75 ? "assets/volume-high-solid.svg" :
+            volumes.general[0] >= 0.25 ? "assets/volume-medium-solid.svg" : "assets/volume-low-solid.svg");
+    }
+
+    if (!volumeControl.matches(":hover")) {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            volumeControl.removeAttribute("shown");
+            timeout = null;
+        }, 1500);
+    }
+});
+volumeControl.addEventListener("mouseenter", e => {
+    if (timeout) clearTimeout(timeout);
+});
+volumeControl.addEventListener("mouseleave", e => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+        volumeControl.removeAttribute("shown");
+        timeout = null;
+    }, 1000);
+});
+
 
 function frame(time) {
     document.querySelector("#fps").innerHTML = time;
@@ -258,7 +315,7 @@ const getBackgroundPictureURL = async (entries, beatmap) => {
 }
 
 const getSong = async (entries, beatmap) => {
-    const songFileName = beatmap.General.AudioFilename.trim();console.log(songFileName)
+    const songFileName = beatmap.General.AudioFilename.trim();
     return await entries[songFileName]?.getData(new BlobWriter());
 }
 
