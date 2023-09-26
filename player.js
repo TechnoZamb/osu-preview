@@ -1,5 +1,5 @@
 import { clamp } from "./functions.js";
-import { volumes } from "./index.js";
+import { volumes } from "./volumes.js";
 
 export class MusicPlayer {
     static #initializing = false;

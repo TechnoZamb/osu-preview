@@ -29,14 +29,14 @@ const oldSpinnerFiles = {
     "spinner-circle": {},
     "spinner-metre": {}
 };
-const newSpinneFiles = {
+const newSpinnerFiles = {
     "spinner-glow": { tinted: [17, 160, 248] },
     "spinner-bottom": {},
     "spinner-top": {},
     "spinner-middle2": {},
     "spinner-middle": {}
 };
-const allFiles = Object.assign({}, files, oldSpinnerFiles, newSpinneFiles);
+const allFiles = Object.assign({}, files, oldSpinnerFiles, newSpinnerFiles);
 
 const defaultValues = {            // for skin.ini
     General: {
@@ -47,6 +47,10 @@ const defaultValues = {            // for skin.ini
     Colours: {
         SliderBorder: "255,255,255",
         SliderTrackOverride: false,
+    },
+    Fonts: {
+        HitCirclePrefix: "default",
+        HitCircleOverlap: -2
     }
 };
 
@@ -130,15 +134,18 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         }
     }
 
-    // other required skin.ini entries
+    // load default ini values
     for (let cat in defaultValues) {
+        if (!ini[cat]) {
+            ini[cat] = {};
+        }
         for (let [key, val] of Object.entries(defaultValues[cat])) {
             if (ini[cat][key] === undefined)
                 ini[cat][key] = val;
         }
     }
 
-    const imgs = await loadAllFiles(files);
+    const imgs = await loadAllFiles(files, ini);
 
     let isOldSpinner;
     if (imgs.find(x => x.baseName == "spinner-background").ok) {
@@ -149,7 +156,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
     else {
         // new spinner
         imgs.splice(imgs.findIndex(x => x.baseName == "spinner-background"), 1);
-        imgs.push(...await loadAllFiles(newSpinneFiles));
+        imgs.push(...await loadAllFiles(newSpinnerFiles));
         isOldSpinner = false;
     }
 
@@ -281,7 +288,12 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
             }
         }
         else {
-            result[obj.name] = obj.img;
+            if (obj.baseName == "default-") {
+                result[obj.baseName + obj.count] = obj.img;
+            }
+            else {
+                result[obj.name] = obj.img;
+            }
         }
     }
 
@@ -314,7 +326,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
 
     return result;
 
-    async function loadAllFiles(fileNames) {
+    async function loadAllFiles(fileNames, ini) {
         const result = [];
 
         // stages:
@@ -328,7 +340,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         for (let [key, val] of Object.entries(fileNames)) {
             let imgs = [];
 
-            if (val.enumerable && val.enumerable != -1) {
+            if (key == "default-") {
                 for (let i = 0; i <= val.enumerable; i++) {
                     if (loadBeatmapSkin) {
                         imgs.push({ files: beatmapFiles, count: i, ext: ".png", baseName: key, stage: 5, isHD: false });
@@ -338,6 +350,16 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                     }
                 }
             }
+            /*if (val.enumerable && val.enumerable != -1) {
+                for (let i = 0; i <= val.enumerable; i++) {
+                    if (loadBeatmapSkin) {
+                        imgs.push({ files: beatmapFiles, count: i, ext: ".png", baseName: key, stage: 5, isHD: false });
+                    }
+                    else {
+                        imgs.push({ files: skinFiles, count: i, ext: ".png", baseName: key, stage: 4, isHD: true });
+                    }
+                }
+            }*/
             else if (!val.enumerable) {
                 if (loadBeatmapSkin) {
                     imgs.push({ files: beatmapFiles, ext: ".png", baseName: key, stage: 5, isHD: false });
@@ -389,7 +411,12 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                             }
                         }
 
-                        obj.name = obj.baseName + (obj.count ?? "");
+                        if (obj.baseName == "default-" && (obj.stage == 3 || obj.stage == 4)) {
+                            obj.name = ini.Fonts.HitCirclePrefix + "-" + (obj.count ?? "");
+                        }
+                        else {
+                            obj.name = obj.baseName + (obj.count ?? "");
+                        }
                     }
 
                 } while (ok == false)

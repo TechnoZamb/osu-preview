@@ -2,9 +2,9 @@
     font-family: Torus;
     src: url(assets/Torus-Light.otf);
 }
-@keyframes test {
-    from { transform: translateY(-50%);}
-    to { transform: translate(128px, -50%);}
+@keyframes expand-and-fade {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 0.65; }
+    to { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
 }
 
 html, body {
@@ -123,6 +123,18 @@ canvas {
 }
 #volume-control[shown] .volume-slider::after {
     background-color: #b2f3fda6;
+}
+
+#play-anim, #pause-anim {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+}
+.playpause-animation {
+    animation: expand-and-fade 0.4s ease-out;
 }
 
 

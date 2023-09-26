@@ -3,7 +3,7 @@ import { mod, clamp, lerp, range, rgb } from "./functions.js";
 import { drawSlider, getFollowPosition, getSliderTicks } from "./slider.js";
 import { asyncLoadImage } from "./skin.js";
 
-const canvasSize = [800, 540];
+let canvasSize = [];
 const minMargin = 20;
 const drawGrid = false;
 
@@ -25,8 +25,8 @@ export async function init(bgURL) {
     bufferCanvas = document.createElement("canvas");
     bufferCtx = bufferCanvas.getContext("2d");
 
-    canvas.width = canvasSize[0];
-    canvas.height = canvasSize[1];
+    canvasSize[0] = canvas.width;
+    canvasSize[1] = canvas.height;
     bufferCanvas.width = canvas.width;
     bufferCanvas.height = canvas.height;
 
@@ -331,13 +331,13 @@ export function render(time) {
             const combo = obj.combo.toString();
             const width = main.skin["default-" + combo[0]].width;
             const height = main.skin["default-" + combo[0]].height;
-            const totalWidth = width * combo.length - main.skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2 * (combo.length - 1);
+            const totalWidth = width * combo.length - main.skin.ini.Fonts.HitCircleOverlap * (combo.length - 1);
             const numberScale = main.beatmap.radius / 80 / 512 * fieldSize[0];
             for (let i = 0; i < combo.length; i++) {
                 const sprite = main.skin["default-" + combo[i]];
 
                 const [x, y, w, h] = [
-                    osuPx2screenPx(obj.x) + margins[0] + (-totalWidth / 2 + (width - main.skin.ini.Fonts.HitCircleOverlap / 640 * fieldSize[0] / 2) * i) * numberScale,
+                    osuPx2screenPx(obj.x) + margins[0] + (-totalWidth / 2 + (width - main.skin.ini.Fonts.HitCircleOverlap) * i) * numberScale,
                     osuPx2screenPx(obj.y) + margins[1] - height / 2 * numberScale,
                     width * (sprite.naturalWidth / main.skin["default-" + combo[0]].naturalWidth) * numberScale,
                     height * (sprite.naturalHeight / main.skin["default-" + combo[0]].naturalHeight) * numberScale

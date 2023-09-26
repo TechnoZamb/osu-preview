@@ -4,6 +4,7 @@ import { parseSkin } from "./skin.js";
 import * as render from "./render.js";
 import { sleep, clamp, distance } from "./functions.js";
 import { getFollowPosition, getSliderTicks } from "./slider.js";
+import { volumes } from "./volumes.js";
 const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
 
 
@@ -20,12 +21,6 @@ export let bgdim = 0.7;
 export let breaks;
 
 var spinnerspinSource;
-
-export const volumes = {
-    general: [0.2, null],
-    music: [0.5, null],
-    effects: [1, null]
-};
 
 
 window.addEventListener("load", async (e) => {
@@ -66,7 +61,7 @@ window.addEventListener("load", async (e) => {
 
     const skinBlob = await fetch("skin.zip").then(res => res.blob());
     const skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
-    skin = await parseSkin(skinFiles, beatmapFiles, beatmap, true);
+    skin = await parseSkin(skinFiles, beatmapFiles, beatmap, false);
     render.init(bgURL);
 
     const songBlob = await getSong(beatmapFiles, beatmap);
@@ -74,7 +69,7 @@ window.addEventListener("load", async (e) => {
     progressBar = new ProgressBar("#progress-bar", player);
     progressBar.onFrame = frame;
     progressBar.onResume = queueHitsounds;
-    player.currentTime = 0//parseInt(beatmap.General.PreviewTime) / 1000;
+    player.currentTime = 44.539//parseInt(beatmap.General.PreviewTime) / 1000;
 
     computeBreaks();
     document.querySelector("#progress-bar").style["background"] =
@@ -91,55 +86,20 @@ window.addEventListener("load", async (e) => {
     player.pause();
 });
 
-let timeout;
 
-
-const volumeControl = document.querySelector("#volume-control");
-let lastScrolls = [];
-
-document.addEventListener("wheel", e => {
-    const now = performance.now();
-    lastScrolls.push(now);
-
-    lastScrolls = lastScrolls.filter(x => now - x < 400);
-    const val = e.deltaY / 10000 * lastScrolls.length;
-
-    volumeControl.setAttribute("shown", "");
-
-    if (document.querySelector("#volume-music:hover")) {
-        volumes.music[0] = volumes.music[1].gain.value = clamp(0, volumes.music[0] - val, 1);
-        volumeControl.querySelector("#volume-music").style.setProperty("--value", volumes.music[0]);
-    }
-    else if (document.querySelector("#volume-effects:hover")) {
-        volumes.effects[0] = volumes.effects[1].gain.value = clamp(0, volumes.effects[0] - val, 1);
-        volumeControl.querySelector("#volume-effects").style.setProperty("--value", volumes.effects[0]);
+document.querySelector("canvas").addEventListener("click", e => {
+    if (player.paused) {
+        player.play();
+        document.querySelector("#play-anim").classList.remove("playpause-animation");
+        void document.querySelector("#play-anim").offsetWidth;
+        document.querySelector("#play-anim").classList.add("playpause-animation");
     }
     else {
-        volumes.general[0] = volumes.general[1].gain.value = clamp(0, volumes.general[0] - val, 1);
-        volumeControl.querySelector("#volume-general").style.setProperty("--value", volumes.general[0]);
-        volumeControl.querySelector("#volume-general > img").src =
-           (volumes.general[0] == 0 ? "assets/volume-xmark-solid.svg" :
-            volumes.general[0] >= 0.75 ? "assets/volume-high-solid.svg" :
-            volumes.general[0] >= 0.25 ? "assets/volume-medium-solid.svg" : "assets/volume-low-solid.svg");
+        player.pause();
+        document.querySelector("#pause-anim").classList.remove("playpause-animation");
+        void document.querySelector("#pause-anim").offsetWidth;
+        document.querySelector("#pause-anim").classList.add("playpause-animation");
     }
-
-    if (!volumeControl.matches(":hover")) {
-        if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(() => {
-            volumeControl.removeAttribute("shown");
-            timeout = null;
-        }, 1500);
-    }
-});
-volumeControl.addEventListener("mouseenter", e => {
-    if (timeout) clearTimeout(timeout);
-});
-volumeControl.addEventListener("mouseleave", e => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => {
-        volumeControl.removeAttribute("shown");
-        timeout = null;
-    }, 1000);
 });
 
 
