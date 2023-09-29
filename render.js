@@ -20,7 +20,7 @@ let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
 let sliderGradientDivisions = 20;
 
 export async function init(bgURL) {
-    canvas = document.querySelector("canvas");
+    canvas = document.querySelector("#main-canvas");
     ctx = canvas.getContext("2d");
     bufferCanvas = document.createElement("canvas");
     bufferCtx = bufferCanvas.getContext("2d");

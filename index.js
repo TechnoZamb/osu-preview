@@ -2,7 +2,7 @@ import { MusicPlayer } from "./player.js";
 import { ProgressBar } from "./progress.js";
 import { parseSkin } from "./skin.js";
 import * as render from "./render.js";
-import { sleep, clamp, distance } from "./functions.js";
+import { sleep, clamp, distance, $ } from "./functions.js";
 import { getFollowPosition, getSliderTicks } from "./slider.js";
 import { volumes } from "./volumes.js";
 const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
@@ -24,14 +24,49 @@ var spinnerspinSource;
 
 
 window.addEventListener("load", async (e) => {
-    document.querySelector("#play").addEventListener("click", e => player.play())
-    document.querySelector("#pause").addEventListener("click", e => player.pause());
+    $("#play").addEventListener("click", e => player.play())
+    $("#pause").addEventListener("click", e => player.pause());
 
-    document.querySelector("input").oninput = (e) => bgdim = e.target.value;
-    document.querySelector("input").value = bgdim;
+    $("input").oninput = (e) => bgdim = e.target.value;
+    $("input").value = bgdim;
+
+    $("#loading-text").innerHTML = "loading assets";
+    loadingCanvas();
 
     try {await fetch("http://localhost:8000/cgi-bin/hello.py")}catch{}
 
+    await initOsu();
+    $("#loading-screen").style.opacity = 0;
+    $("#loading-screen").style.pointerEvents = "none";
+    setTimeout(() => {
+        stopLoading = true;
+    }, 1000);
+    
+    // necessary to sync music and hitsounds
+    player.play();
+    player.pause();
+    await sleep(100);
+    player.play();
+    player.pause();
+});
+
+
+$("canvas").addEventListener("click", e => {
+    if (player.paused) {
+        player.play();
+        $("#play-anim").classList.remove("playpause-animation");
+        void $("#play-anim").offsetWidth;
+        $("#play-anim").classList.add("playpause-animation");
+    }
+    else {
+        player.pause();
+        $("#pause-anim").classList.remove("playpause-animation");
+        void $("#pause-anim").offsetWidth;
+        $("#pause-anim").classList.add("playpause-animation");
+    }
+});
+
+async function initOsu() {
     const oszFile = await fetch("map.zip").then(r => r.blob());
     const beatmapFiles = (await extractFile(oszFile)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
@@ -72,39 +107,104 @@ window.addEventListener("load", async (e) => {
     player.currentTime = 44.539//parseInt(beatmap.General.PreviewTime) / 1000;
 
     computeBreaks();
-    document.querySelector("#progress-bar").style["background"] =
+    $("#progress-bar").style["background"] =
         "linear-gradient(90deg" + breaks.reduce((x, y) => {
             const [a, b] = [(y[0] / player.duration / 10).toFixed(2), (y[1] / player.duration / 10).toFixed(2)];
             return x + `,var(--bg-color) ${a}%,var(--break-color) ${a}%,var(--break-color) ${b}%,var(--bg-color) ${b}%`
         }, "") + ")";
+}
 
-    // necessary to sync music and hitsounds
-    player.play();
-    player.pause();
-    await sleep(100);
-    player.play();
-    player.pause();
-});
+let triangleList;
+let lastTime = 0;
+let stopLoading = false;
 
+function loadingCanvas() {
+    const canvas = $("#loading-canvas");
+    const ctx = canvas.getContext("2d");
+    let lastx = 0;
 
-document.querySelector("canvas").addEventListener("click", e => {
-    if (player.paused) {
-        player.play();
-        document.querySelector("#play-anim").classList.remove("playpause-animation");
-        void document.querySelector("#play-anim").offsetWidth;
-        document.querySelector("#play-anim").classList.add("playpause-animation");
+    const getRandomTimeout = () => Math.random() * 400;
+
+    let fakeTime = 0;
+    triangleList = Array.from(Array(300)).map(generator);
+    triangleList.forEach(x => x.startTime = fakeTime += getRandomTimeout());
+    triangleList.forEach(x => x.y -= x.speed * x.startTime);
+
+    (function gen() {
+        const t = generator();
+        t.y = 600 + t.radius + 30;
+        triangleList.push(t);
+        if (!stopLoading) setTimeout(gen, getRandomTimeout());
+    })();
+
+    (function inner() {
+        const deltaY = performance.now() - lastTime;
+
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+
+        for (let i = 0; i < triangleList.length; i++) {
+            const triangle = triangleList[i];
+            
+            // move triangle
+            triangle.y -= triangle.speed * deltaY;
+
+            // if out of screen, remove
+            if (triangle.y + triangle.radius * 0.5 + 300 < 0) {
+                triangleList.splice(i, 1);
+                i--;
+                continue;
+            }
+
+            // draw triangle
+            ctx.strokeStyle = "#ffffff50";
+            ctx.lineWidth = triangle.width;
+            ctx.beginPath();
+            ctx.moveTo(triangle.x, triangle.y - triangle.radius);
+            ctx.lineTo(triangle.x + triangle.radius * 0.86, triangle.y + triangle.radius * 0.5);
+            ctx.lineTo(triangle.x - triangle.radius * 0.86, triangle.y + triangle.radius * 0.5);
+            ctx.closePath();
+            ctx.stroke();
+        }
+        ctx.fillStyle = "#2a146d00";
+        //ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        
+        lastTime = performance.now();
+        window.requestAnimationFrame(inner);
+    })();
+
+    function generator() {
+        let x;
+        do {
+            x = Math.random() * 850 - 50;
+        }
+        while (Math.abs(x - lastx) < 100);
+        lastx = x;
+        const radius = (Math.tan(Math.random() * 3 - 1.5) / 7 + 2) / 4 * 100 + 30;
+        return {
+            x: x,
+            y: 600 + radius + 30,
+            speed: Math.random() * 0.07 + 0.05,
+            radius: radius,
+            width: Math.random() * 7 + 3
+        }
     }
-    else {
-        player.pause();
-        document.querySelector("#pause-anim").classList.remove("playpause-animation");
-        void document.querySelector("#pause-anim").offsetWidth;
-        document.querySelector("#pause-anim").classList.add("playpause-animation");
-    }
-});
+}
 
+function changeSpinnerValue(val) {
+    const spinner = $("#loading-spinner");
+    spinner.style.clipPath = "polygon(50% 50%, 0 0, " + (
+        val < 0.25 ? `${val * 400}% 0)` :
+        val < 0.50 ? `100% 0, 100% ${(val - 0.25) * 400}%)` :
+        val < 0.75 ? `100% 0, 100% 100%, ${(0.25 - val + 0.5) * 400}% 100%)` :
+                     `100% 0, 100% 100%, 0 100%, 0 ${(0.25 - val + 0.75) * 400}%`);
+}
 
 function frame(time) {
-    document.querySelector("#fps").innerHTML = time;
+    $("#fps").innerHTML = time;
 
     time *= 1000;
 

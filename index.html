@@ -10,7 +10,7 @@
 </head>
 <body>
     <main>
-        <canvas width="800" height="540"></canvas>
+        <canvas id="main-canvas" width="800" height="540"></canvas>
         <div id="progress-bar-wrapper">
             <div id="progress-bar">
                 <div class="progress"></div>
@@ -49,5 +49,11 @@
             <button id="download-btn" class="btn-big">Download</button>
         </div>
     </footer>
+    <div id="loading-screen">
+        <canvas id="loading-canvas" width="800" height="600"></canvas>
+        <span id="loading-spinner"></span>
+        <span id="loading-text"></span>
+        <span id="loading-progress"></span>
+    </div>
 </body>
 </html>

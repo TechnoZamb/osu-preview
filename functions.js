@@ -13,6 +13,7 @@ export function urlJoin(...args) {
     const parts = Array.from(Array.isArray(args[0]) ? args[0] : args);
     return normalize(parts);
 }
+export const $ = x => document.querySelector(x);
 
 
 // https://github.com/jfromaniello/url-join/blob/main/lib/url-join.js
