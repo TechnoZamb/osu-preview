@@ -5,8 +5,8 @@ let lastScrolls = [];
 let timeout;
 
 export const volumes = {
-    general: [1, null],
-    music: [0, null],
+    general: [0.1, null],
+    music: [1, null],
     effects: [1, null]
 };
 

@@ -1,5 +1,5 @@
 import * as main from "./index.js";
-import { mod, clamp, lerp, range, rgb } from "./functions.js";
+import { mod, clamp, lerp, range, rgb, distance } from "./functions.js";
 import { drawSlider, getFollowPosition, getSliderTicks } from "./slider.js";
 import { asyncLoadImage } from "./skin.js";
 
@@ -15,7 +15,7 @@ let bg;
 let lastKiaiTime = -1, wasInKiai = false;
 let lastBreakTime = -1, wasInBreak;
 export let fieldSize = [], margins, bgSize;
-export let osuPx2screenPx;
+export let osuCoords2Pixels;
 let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
 let sliderGradientDivisions = 20;
 
@@ -40,7 +40,7 @@ export async function init(bgURL) {
         fieldSize[1] = fieldSize[0] / 512 * 384;
         margins = [minMargin, (canvasSize[1] - fieldSize[1]) / 2];
     }
-    osuPx2screenPx = (val) => val / 512 * fieldSize[0];
+    osuCoords2Pixels = (val) => val / 512 * fieldSize[0];
 
     if (bgURL) {
         bg = await asyncLoadImage(bgURL);
@@ -107,10 +107,10 @@ export function render(time) {
         ctx.strokeRect(margins[0], margins[1], fieldSize[0], fieldSize[1]);
     }
 
-    // find first (last in hitobjects list) object to paint
-    //var index = binarySearch(main.beatmap.HitObjects, time + main.beatmap.preempt);
-    var index = main.beatmap.HitObjects.length - 1;
+    followPoints(time);
 
+    // paint hitobjects from last to first
+    var index = main.beatmap.HitObjects.length - 1;
     var approachQueue = [], followQueue = [];
 
     while (index >= 0) {
@@ -141,7 +141,7 @@ export function render(time) {
                 snake = 1;
             }
 
-            bufferCtx.moveTo(osuPx2screenPx(obj.x) + margins[0], osuPx2screenPx(obj.y) + margins[1]);
+            bufferCtx.moveTo(osuCoords2Pixels(obj.x) + margins[0], osuCoords2Pixels(obj.y) + margins[1]);
             drawSlider(obj, obj.pixelLength * snake, true, bufferCtx);
 
             const diameter = main.beatmap.radius * 2 / 512 * fieldSize[0] * 0.8;
@@ -159,7 +159,7 @@ export function render(time) {
             bufferCtx.stroke();
 
             ctx.shadowColor = "#404040";
-            ctx.shadowBlur = 0.11 * osuPx2screenPx(main.beatmap.radius);
+            ctx.shadowBlur = 0.11 * osuCoords2Pixels(main.beatmap.radius);
             ctx.drawImage(bufferCanvas, 0, 0);
             ctx.shadowColor = "transparent";
 
@@ -186,10 +186,10 @@ export function render(time) {
             let overlaySprite = main.skin["sliderendcircleoverlay"];
 
             const _drawEnd = (sprite, position, startTime, scale) => {
-                const size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
+                const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
                 const scale2 = 1 + (scale ? (1 - easeOut(mod((time - startTime) / obj.beatLength, 1))) * 0.3 : 0);
                 ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
-                ctx.drawImage(sprite, osuPx2screenPx(position[0]) + margins[0] - size[0] / 2 * scale2, osuPx2screenPx(position[1]) + margins[1] - size[1] / 2 * scale2, size[0] * scale2, size[1] * scale2);
+                ctx.drawImage(sprite, osuCoords2Pixels(position[0]) + margins[0] - size[0] / 2 * scale2, osuCoords2Pixels(position[1]) + margins[1] - size[1] / 2 * scale2, size[0] * scale2, size[1] * scale2);
             };
 
             // slider end at the end of the slider
@@ -214,10 +214,10 @@ export function render(time) {
                 const scale = 1 + easeOut(clamp(0, 1 - (obj.time + obj.duration * i + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
                 ctx.globalAlpha = clamp(0, (obj.time + obj.duration * slideN + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
 
-                let size = [osuPx2screenPx(main.beatmap.radius) / 64 * circleSprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * circleSprite.height];
-                ctx.drawImage(circleSprite, osuPx2screenPx(position[0]) + margins[0] - size[0] / 2 * scale, osuPx2screenPx(position[1]) + margins[1] - size[1] / 2 * scale, size[0] * scale, size[1] * scale);
-                size = [osuPx2screenPx(main.beatmap.radius) / 64 * overlaySprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * overlaySprite.height];
-                ctx.drawImage(overlaySprite, osuPx2screenPx(position[0]) + margins[0] - size[0] / 2 * scale, osuPx2screenPx(position[1]) + margins[1] - size[1] / 2 * scale, size[0] * scale, size[1] * scale);
+                let size = [osuCoords2Pixels(main.beatmap.radius) / 64 * circleSprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * circleSprite.height];
+                ctx.drawImage(circleSprite, osuCoords2Pixels(position[0]) + margins[0] - size[0] / 2 * scale, osuCoords2Pixels(position[1]) + margins[1] - size[1] / 2 * scale, size[0] * scale, size[1] * scale);
+                size = [osuCoords2Pixels(main.beatmap.radius) / 64 * overlaySprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * overlaySprite.height];
+                ctx.drawImage(overlaySprite, osuCoords2Pixels(position[0]) + margins[0] - size[0] / 2 * scale, osuCoords2Pixels(position[1]) + margins[1] - size[1] / 2 * scale, size[0] * scale, size[1] * scale);
                 i--;
             }
             //#endregion
@@ -228,13 +228,13 @@ export function render(time) {
                 const reverse2 = slideN < obj.slides - 2;
 
                 const sprite = main.skin["reversearrow"];
-                const size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
+                const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
 
                 const _drawArrow = (position, startTime, flip) => {
                     const scale = 1 + (1 - easeOut(mod((time - startTime) / obj.beatLength, 1))) * 0.3;
                     ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
                     ctx.save();
-                    ctx.translate(osuPx2screenPx(position[0]) + margins[0], osuPx2screenPx(position[1]) + margins[1]);
+                    ctx.translate(osuCoords2Pixels(position[0]) + margins[0], osuCoords2Pixels(position[1]) + margins[1]);
                     ctx.rotate(position[2] + (flip ? Math.PI : 0));
                     ctx.drawImage(sprite, -size[0] / 2 * scale, -size[1] / 2 * scale, size[0] * scale, size[1] * scale);
                     ctx.restore();
@@ -256,7 +256,7 @@ export function render(time) {
                     ctx.globalAlpha = clamp(0, (obj.time + obj.duration * slideN + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
                     const position = getFollowPosition(obj, obj.pixelLength * (i % 2));
                     ctx.save();
-                    ctx.translate(osuPx2screenPx(position[0]) + margins[0], osuPx2screenPx(position[1]) + margins[1]);
+                    ctx.translate(osuCoords2Pixels(position[0]) + margins[0], osuCoords2Pixels(position[1]) + margins[1]);
                     ctx.rotate(position[2] + (i % 2 ? Math.PI : 0));
                     ctx.drawImage(sprite, -size[0] / 2 * arrowScale, -size[1] / 2 * arrowScale, size[0] * arrowScale, size[1] * arrowScale);
                     ctx.restore();
@@ -281,9 +281,9 @@ export function render(time) {
                         const followPos = getFollowPosition(obj, ((n > 0 && n % 2) ? ticks[ticks.length - i - 1] : tick) / obj.duration * obj.pixelLength);
                         const temp = time - firstTickTime - tick / 2;
                         const scale = temp < 140 ? (0.5 + clamp(0, temp / 140, 1) * 0.7) : (1 + (1 - clamp(0, (temp - 140) / 140, 1)) * 0.2);
-                        const size = [osuPx2screenPx(main.beatmap.radius) * 2 / 128 * sprite.width * scale, osuPx2screenPx(main.beatmap.radius) * 2 / 128 * sprite.height * scale];
+                        const size = [osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * sprite.width * scale, osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * sprite.height * scale];
                         ctx.globalAlpha = clamp(0, temp / 140, 1);
-                        ctx.drawImage(sprite, osuPx2screenPx(followPos[0]) + margins[0] - size[0] / 2, osuPx2screenPx(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+                        ctx.drawImage(sprite, osuCoords2Pixels(followPos[0]) + margins[0] - size[0] / 2, osuCoords2Pixels(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
                         drawn++;
                     }
@@ -317,10 +317,10 @@ export function render(time) {
                 circleScale = 1 + easeOut(clamp(0, 1 - (obj.time + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
             }
 
-            var size = [osuPx2screenPx(main.beatmap.radius) * 2 / 128 * circleSprite.width * circleScale, osuPx2screenPx(main.beatmap.radius) * 2 / 128 * circleSprite.height * circleScale];
-            ctx.drawImage(circleSprite, osuPx2screenPx(obj.x) + margins[0] - size[0] / 2, osuPx2screenPx(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
-            size = [osuPx2screenPx(main.beatmap.radius) * 2 / 128 * overlaySprite.width * circleScale, osuPx2screenPx(main.beatmap.radius) * 2 / 128 * overlaySprite.height * circleScale];
-            ctx.drawImage(overlaySprite, osuPx2screenPx(obj.x) + margins[0] - size[0] / 2, osuPx2screenPx(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
+            var size = [osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * circleSprite.width * circleScale, osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * circleSprite.height * circleScale];
+            ctx.drawImage(circleSprite, osuCoords2Pixels(obj.x) + margins[0] - size[0] / 2, osuCoords2Pixels(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
+            size = [osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * overlaySprite.width * circleScale, osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * overlaySprite.height * circleScale];
+            ctx.drawImage(overlaySprite, osuCoords2Pixels(obj.x) + margins[0] - size[0] / 2, osuCoords2Pixels(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // draw combo number
             if (time > obj.time) {
@@ -337,8 +337,8 @@ export function render(time) {
                 const sprite = main.skin["default-" + combo[i]];
 
                 const [x, y, w, h] = [
-                    osuPx2screenPx(obj.x) + margins[0] + (-totalWidth / 2 + (width - main.skin.ini.Fonts.HitCircleOverlap) * i) * numberScale,
-                    osuPx2screenPx(obj.y) + margins[1] - height / 2 * numberScale,
+                    osuCoords2Pixels(obj.x) + margins[0] + (-totalWidth / 2 + (width - main.skin.ini.Fonts.HitCircleOverlap) * i) * numberScale,
+                    osuCoords2Pixels(obj.y) + margins[1] - height / 2 * numberScale,
                     width * (sprite.naturalWidth / main.skin["default-" + combo[0]].naturalWidth) * numberScale,
                     height * (sprite.naturalHeight / main.skin["default-" + combo[0]].naturalHeight) * numberScale
                 ];
@@ -359,19 +359,19 @@ export function render(time) {
             if (main.skin.isOldSpinner) {
                 // spinner background
                 sprite = main.skin["spinner-background"][0];
-                size = [osuPx2screenPx(sprite.width) * 0.625, osuPx2screenPx(sprite.height) * 0.625];
-                ctx.drawImage(sprite, osuPx2screenPx(256) + margins[0] - size[0] / 2,
-                    osuPx2screenPx(192) + margins[1] - size[1] / 2, size[0], size[1]);
+                size = [osuCoords2Pixels(sprite.width) * 0.625, osuCoords2Pixels(sprite.height) * 0.625];
+                ctx.drawImage(sprite, osuCoords2Pixels(256) + margins[0] - size[0] / 2,
+                    osuCoords2Pixels(192) + margins[1] - size[1] / 2, size[0], size[1]);
 
                 // spinner circle
                 sprite = main.skin["spinner-circle"];
-                size = [osuPx2screenPx(sprite.width) * 0.625, osuPx2screenPx(sprite.height) * 0.625];
+                size = [osuCoords2Pixels(sprite.width) * 0.625, osuCoords2Pixels(sprite.height) * 0.625];
                 const pow = 2;
                 const maxRPM = 477;
                 // time it takes to reach maxRPM
                 const timemaxRPM = obj.duration / 10;
                 ctx.save();
-                ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
+                ctx.translate(osuCoords2Pixels(256) + margins[0], osuCoords2Pixels(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / timemaxRPM, 1), pow) / pow * timemaxRPM
                     + clamp(0, time - obj.time - timemaxRPM, obj.duration - timemaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
@@ -402,18 +402,18 @@ export function render(time) {
                 else {
                     ctx.globalAlpha = clamp(0, (obj.endTime + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
                 }
-                size = [osuPx2screenPx(sprite.width) * 0.625 * scale, osuPx2screenPx(sprite.height) * 0.625 * scale];
-                ctx.drawImage(sprite, osuPx2screenPx(256) + margins[0] - size[0] / 2,
-                    osuPx2screenPx(192) + margins[1] - size[1] / 2, size[0], size[1]);
+                size = [osuCoords2Pixels(sprite.width) * 0.625 * scale, osuCoords2Pixels(sprite.height) * 0.625 * scale];
+                ctx.drawImage(sprite, osuCoords2Pixels(256) + margins[0] - size[0] / 2,
+                    osuCoords2Pixels(192) + margins[1] - size[1] / 2, size[0], size[1]);
                 ctx.globalAlpha = tempAlpha;
 
                 // spinner bottom
                 sprite = main.skin["spinner-bottom"];
-                size = [osuPx2screenPx(sprite.width) * 0.625 * scale, osuPx2screenPx(sprite.height) * 0.625 * scale];
+                size = [osuCoords2Pixels(sprite.width) * 0.625 * scale, osuCoords2Pixels(sprite.height) * 0.625 * scale];
                 maxRPM = 75;
                 timeMaxRPM = baseTimeMaxRPM / 5;
                 ctx.save();
-                ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
+                ctx.translate(osuCoords2Pixels(256) + margins[0], osuCoords2Pixels(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / baseTimeMaxRPM, 1), pow) / pow * baseTimeMaxRPM
                     + clamp(0, time - obj.time - baseTimeMaxRPM, obj.duration - baseTimeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
@@ -421,11 +421,11 @@ export function render(time) {
 
                 // spinner top
                 sprite = main.skin["spinner-top"];
-                size = [osuPx2screenPx(sprite.width) * 0.625 * scale, osuPx2screenPx(sprite.height) * 0.625 * scale];
+                size = [osuCoords2Pixels(sprite.width) * 0.625 * scale, osuCoords2Pixels(sprite.height) * 0.625 * scale];
                 maxRPM = 230;
                 timeMaxRPM = baseTimeMaxRPM / 3;
                 ctx.save();
-                ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
+                ctx.translate(osuCoords2Pixels(256) + margins[0], osuCoords2Pixels(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / timeMaxRPM, 1), pow) / pow * timeMaxRPM
                     + clamp(0, time - obj.time - timeMaxRPM, obj.duration - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
@@ -433,10 +433,10 @@ export function render(time) {
 
                 // spinner middle2
                 sprite = main.skin["spinner-middle2"];
-                size = [osuPx2screenPx(sprite.width) * 0.625 * scale, osuPx2screenPx(sprite.height) * 0.625 * scale];
+                size = [osuCoords2Pixels(sprite.width) * 0.625 * scale, osuCoords2Pixels(sprite.height) * 0.625 * scale];
                 timeMaxRPM = baseTimeMaxRPM / 3;
                 ctx.save();
-                ctx.translate(osuPx2screenPx(256) + margins[0], osuPx2screenPx(192) + margins[1]);
+                ctx.translate(osuCoords2Pixels(256) + margins[0], osuCoords2Pixels(192) + margins[1]);
                 ctx.rotate((Math.pow(clamp(0, (time - obj.time) / timeMaxRPM, 1), pow) / pow * timeMaxRPM
                     + clamp(0, time - obj.time - timeMaxRPM, obj.duration - timeMaxRPM)) / 1000 / 60 * -maxRPM * Math.PI * 2);
                 ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
@@ -444,16 +444,16 @@ export function render(time) {
 
                 // spinner middle
                 sprite = main.skin["spinner-middle"];
-                size = [osuPx2screenPx(sprite.width) * 0.625 * scale, osuPx2screenPx(sprite.height) * 0.625 * scale];
-                ctx.drawImage(sprite, osuPx2screenPx(256) + margins[0] - size[0] / 2,
-                    osuPx2screenPx(192) + margins[1] - size[1] / 2, size[0], size[1]);
+                size = [osuCoords2Pixels(sprite.width) * 0.625 * scale, osuCoords2Pixels(sprite.height) * 0.625 * scale];
+                ctx.drawImage(sprite, osuCoords2Pixels(256) + margins[0] - size[0] / 2,
+                    osuCoords2Pixels(192) + margins[1] - size[1] / 2, size[0], size[1]);
             }
 
             const maxRPM = 477;
             sprite = main.skin["cursor"];
-            const size2 = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
+            const size2 = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
             ctx.save();
-            ctx.translate(osuPx2screenPx(obj.x) + margins[0], osuPx2screenPx(obj.y) + margins[1]);
+            ctx.translate(osuCoords2Pixels(obj.x) + margins[0], osuCoords2Pixels(obj.y) + margins[1]);
             ctx.rotate(-clamp(0, time - obj.time, obj.duration) / 1000 / 60 * maxRPM * Math.PI * 2);
             ctx.drawImage(sprite, -size2[0] / 2, -size2[1] / 2 - 100, size2[0], size2[1]);
             ctx.restore();
@@ -461,21 +461,21 @@ export function render(time) {
             // approach circle
             sprite = main.skin["spinner-approachcircle"];
             const approachScale = 0.05 + clamp(0, (obj.endTime - time) / obj.duration, 1) * 0.95;
-            size = [osuPx2screenPx(sprite.width) * 1.16 * approachScale, osuPx2screenPx(sprite.height) * 1.16 * approachScale];
-            ctx.drawImage(sprite, osuPx2screenPx(256) + margins[0] - size[0] / 2,
-                osuPx2screenPx(192) + margins[1] - size[1] / 2, size[0], size[1]);
+            size = [osuCoords2Pixels(sprite.width) * 1.16 * approachScale, osuCoords2Pixels(sprite.height) * 1.16 * approachScale];
+            ctx.drawImage(sprite, osuCoords2Pixels(256) + margins[0] - size[0] / 2,
+                osuCoords2Pixels(192) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // spinner clear
             const temp = time - obj.time - obj.duration * 0.45;
             if (temp > 0) {
                 sprite = main.skin["spinner-clear"];
                 const scale = temp < 225 ? (1.7 - easeOut(clamp(0, temp / 225, 1))) : (0.7 + clamp(0, (temp - 225) / 141, 1) * 0.2);
-                size = [osuPx2screenPx(sprite.width) * 0.7 * scale, osuPx2screenPx(sprite.height) * 0.7 * scale];
+                size = [osuCoords2Pixels(sprite.width) * 0.7 * scale, osuCoords2Pixels(sprite.height) * 0.7 * scale];
                 if (ctx.globalAlpha == 1) {
                     ctx.globalAlpha = clamp(0, temp / 366, 1);
                 }
-                ctx.drawImage(sprite, osuPx2screenPx(256) + margins[0] - size[0] / 2,
-                    osuPx2screenPx(86.5) + margins[1] - size[1] / 2, size[0], size[1]);
+                ctx.drawImage(sprite, osuCoords2Pixels(256) + margins[0] - size[0] / 2,
+                    osuCoords2Pixels(86.5) + margins[1] - size[1] / 2, size[0], size[1]);
             }
         }
 
@@ -490,8 +490,8 @@ export function render(time) {
         // get tinted approachcircle
         const tinted = main.skin["approachcircle"][obj.comboIndex % main.skin.ini.combos.length];
 
-        const size = [osuPx2screenPx(main.beatmap.radius) / 64 * tinted.width * approachScale, osuPx2screenPx(main.beatmap.radius) / 64 * tinted.height * approachScale];
-        ctx.drawImage(tinted, osuPx2screenPx(obj.x) + margins[0] - size[0] / 2, osuPx2screenPx(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
+        const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * tinted.width * approachScale, osuCoords2Pixels(main.beatmap.radius) / 64 * tinted.height * approachScale];
+        ctx.drawImage(tinted, osuCoords2Pixels(obj.x) + margins[0] - size[0] / 2, osuCoords2Pixels(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
     }
 
     // draw slider elements with higher priority
@@ -520,24 +520,24 @@ export function render(time) {
                     followScale = 1 + (1 - clamp(0, (time - (obj.time + obj.duration * slideN) - lastTouchedTick) / 200, 1)) * 0.1;
                 }
             }
-            let size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width * followScale, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height * followScale];
+            let size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * followScale, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * followScale];
             ctx.globalAlpha = clamp(0, (time - obj.time) / 60, 1);
-            ctx.drawImage(sprite, osuPx2screenPx(followPos[0]) + margins[0] - size[0] / 2, osuPx2screenPx(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            ctx.drawImage(sprite, osuCoords2Pixels(followPos[0]) + margins[0] - size[0] / 2, osuCoords2Pixels(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // slider ball
             ctx.globalAlpha = 1;
             if (main.skin.isDefaultSliderBall) {
                 sprite = main.skin["sliderb-nd"];
-                size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
-                ctx.drawImage(sprite, osuPx2screenPx(followPos[0]) + margins[0] - size[0] / 2, osuPx2screenPx(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+                size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
+                ctx.drawImage(sprite, osuCoords2Pixels(followPos[0]) + margins[0] - size[0] / 2, osuCoords2Pixels(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
             }
             const sliderbFrame = parseInt((time - obj.time) / 16.6);
             sprite = main.skin.sliderb[sliderbFrame % main.skin.sliderb.length][parseInt(main.skin.ini.General.AllowSliderBallTint) ? obj.comboIndex % main.skin.ini.combos.length : 0];
             const flipX = (parseInt(main.skin.ini.General.SliderBallFlip) && Math.floor(slideN) % 2) ? -1 : 1;
             const flipY = followPos[3] ? -1 : 1;
-            size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
+            size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
             ctx.save();
-            ctx.translate(osuPx2screenPx(followPos[0]) + margins[0], osuPx2screenPx(followPos[1]) + margins[1]);
+            ctx.translate(osuCoords2Pixels(followPos[0]) + margins[0], osuCoords2Pixels(followPos[1]) + margins[1]);
             ctx.rotate(followPos[2]);
             ctx.scale(flipX, flipY);
             ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
@@ -545,9 +545,9 @@ export function render(time) {
 
             if (main.skin.isDefaultSliderBall) {
                 sprite = main.skin["sliderb-spec"];
-                size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height];
+                size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
                 ctx.globalCompositeOperation = "lighter";
-                ctx.drawImage(sprite, osuPx2screenPx(followPos[0]) + margins[0] - size[0] / 2, osuPx2screenPx(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+                ctx.drawImage(sprite, osuCoords2Pixels(followPos[0]) + margins[0] - size[0] / 2, osuCoords2Pixels(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
                 ctx.globalCompositeOperation = "source-over";
             }
         }
@@ -556,9 +556,9 @@ export function render(time) {
             const sprite = main.skin["sliderfollowcircle"];
             const followPos = getFollowPosition(obj, obj.slides % 2 ? obj.pixelLength : 0);
             const scale = 1 - clamp(0, easeOut((time - endTime) / 150) * 0.2, 0.2);
-            const size = [osuPx2screenPx(main.beatmap.radius) / 64 * sprite.width * scale, osuPx2screenPx(main.beatmap.radius) / 64 * sprite.height * scale];
+            const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * scale, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * scale];
             ctx.globalAlpha = clamp(0, (obj.time + obj.duration * obj.slides - time + 200) / 200, 1);
-            ctx.drawImage(sprite, osuPx2screenPx(followPos[0]) + margins[0] - size[0] / 2, osuPx2screenPx(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
+            ctx.drawImage(sprite, osuCoords2Pixels(followPos[0]) + margins[0] - size[0] / 2, osuCoords2Pixels(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
         }
     }
 
@@ -659,6 +659,74 @@ const adjustSliderGradientDivisions = () => {
             }
             prevTime = now;
             framesN = 0;
+        }
+    }
+}
+
+// https://github.com/McKay42/McOsu/blob/56c9a928f05a73da02ac841826d5f3eb3b5cede2/src/App/Osu/OsuBeatmapStandard.cpp#L401
+const followPoints = (time) => {
+    for (let index = 1; index < main.beatmap.HitObjects.length; index++) {
+        const obj = main.beatmap.HitObjects[index];
+        let lastIndex = index - 1;
+        const lastObj = main.beatmap.HitObjects[lastIndex];
+
+        // ignore future spinners
+        if (obj.isSpinner) {
+            lastIndex = -1;
+            continue;
+        }
+
+        if (lastIndex >= 0 && obj.combo != 1) {
+            // ignore previous spinners
+            if (lastObj.isSpinner) {
+                lastIndex = -1;
+                continue;
+            }
+
+            // get time and pos of the last and current object
+            const timeDiff = obj.time - lastObj.endTime;
+
+            const startPoint = [obj.x, obj.y];
+            let endPoint = [lastObj.x, lastObj.y];
+            if (lastObj.isSlider) {
+                endPoint = getFollowPosition(lastObj, lastObj.pixelLength * (lastObj.slides % 2));
+            }
+            const dist = distance(startPoint, endPoint);
+
+            // draw all points between the two objects
+            const followPointSeparation = 32;
+            for (let j = followPointSeparation * 1.5; j < dist - followPointSeparation; j += followPointSeparation) {
+                const animRatio = j / dist;
+
+                const fadeOutTime = lastObj.endTime + animRatio * timeDiff;
+                const fadeInTime = fadeOutTime - 800;
+
+                if (time < fadeInTime || time > fadeOutTime + 400) {
+                    continue;
+                }
+                else if (time < fadeOutTime) {
+                    ctx.globalAlpha = clamp(0, (time - fadeInTime) / 400, 1);
+                }
+                else {
+                    ctx.globalAlpha = 1 - clamp(0, (time - fadeOutTime) / 400, 1);
+                }
+
+                const sprite = main.skin.followpoint[time >= fadeInTime + 1000 ? 0 : parseInt((time - fadeInTime) / 1000 * main.skin.followpoint.length)];
+                const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
+                const x = endPoint[0] + (startPoint[0] - endPoint[0]) * animRatio;
+                const y = endPoint[1] + (startPoint[1] - endPoint[1]) * animRatio;
+                ctx.save();
+                ctx.translate(osuCoords2Pixels(x) + margins[0], osuCoords2Pixels(y) + margins[1]);
+                ctx.rotate(Math.atan2(startPoint[1] - endPoint[1], startPoint[0] - endPoint[0]));
+                ctx.drawImage(sprite, -size[0] / 2, -size[1] / 2, size[0], size[1]);
+                ctx.restore();
+            }
+        }
+
+        lastIndex = index;
+
+        if (obj.time >= time + 1200) {
+            break;
         }
     }
 }

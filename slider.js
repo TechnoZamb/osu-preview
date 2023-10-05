@@ -1,4 +1,4 @@
-import { osuPx2screenPx, margins, bezierSegmentMaxLengthSqrd } from "./render.js";
+import { osuCoords2Pixels, margins, bezierSegmentMaxLengthSqrd } from "./render.js";
 import { beatmap } from "./index.js";
 import { mod, lerp } from "./functions.js";
 
@@ -26,7 +26,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
             if (actualLength > length) {
                 const ratio = (length - prevLength) / (actualLength - prevLength);
                 if (draw) {
-                    bufferCtx.lineTo(osuPx2screenPx(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuPx2screenPx(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
+                    bufferCtx.lineTo(osuCoords2Pixels(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2Pixels(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
                     break;
                 }
                 else {
@@ -35,7 +35,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
             }
             else {
                 if (draw)
-                    bufferCtx.lineTo(osuPx2screenPx(point.x) + margins[0], osuPx2screenPx(point.y) + margins[1]);
+                    bufferCtx.lineTo(osuCoords2Pixels(point.x) + margins[0], osuCoords2Pixels(point.y) + margins[1]);
             }
 
             prevObj = point;
@@ -49,7 +49,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
             prevLength = actualLength - Math.sqrt(Math.pow(point.x - prevObj.x, 2) + Math.pow(point.y - prevObj.y, 2));
             const ratio = (length - prevLength) / (actualLength - prevLength);
             if (draw)
-                bufferCtx.lineTo(osuPx2screenPx(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuPx2screenPx(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
+                bufferCtx.lineTo(osuCoords2Pixels(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2Pixels(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
             else
                 return [prevObj.x + (point.x - prevObj.x) * ratio, prevObj.y + (point.y - prevObj.y) * ratio, Math.atan2(point.y - prevObj.y, point.x - prevObj.x)];
         }
@@ -99,9 +99,9 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
         }
 
         if (draw) {
-            bufferCtx.arc(osuPx2screenPx(x) + margins[0], osuPx2screenPx(y) + margins[1], osuPx2screenPx(r), anglea, anglec, det < 0);
+            bufferCtx.arc(osuCoords2Pixels(x) + margins[0], osuCoords2Pixels(y) + margins[1], osuCoords2Pixels(r), anglea, anglec, det < 0);
             if (xincr)
-                bufferCtx.lineTo(osuPx2screenPx(c.x + xincr) + margins[0], osuPx2screenPx(c.y + yincr) + margins[1]);
+                bufferCtx.lineTo(osuCoords2Pixels(c.x + xincr) + margins[0], osuCoords2Pixels(c.y + yincr) + margins[1]);
         }
         else {
             if (xincr) {
@@ -133,7 +133,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                     if (actualLength > length) {
                         const ratio = (length - prevLength) / (actualLength - prevLength);
                         if (draw) {
-                            bufferCtx.lineTo(osuPx2screenPx(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuPx2screenPx(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
+                            bufferCtx.lineTo(osuCoords2Pixels(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2Pixels(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
                             break; // out
                         }
                         else {
@@ -142,7 +142,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                     }
                     else {
                         if (draw)
-                            bufferCtx.lineTo(osuPx2screenPx(point.x) + margins[0], osuPx2screenPx(point.y) + margins[1]);
+                            bufferCtx.lineTo(osuCoords2Pixels(point.x) + margins[0], osuCoords2Pixels(point.y) + margins[1]);
                     }
 
                     prevObj = point;
@@ -169,7 +169,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                             const prevl = lengths[j - 1] ?? 0;
                             const ratio = (length - (prevl + actualLength)) / (lengths[j] - prevl);
                             if (draw) {
-                                bufferCtx.lineTo(osuPx2screenPx(lerp(prevp[0], points[j][0], ratio)) + margins[0], osuPx2screenPx(lerp(prevp[1], points[j][1], ratio)) + margins[1]);
+                                bufferCtx.lineTo(osuCoords2Pixels(lerp(prevp[0], points[j][0], ratio)) + margins[0], osuCoords2Pixels(lerp(prevp[1], points[j][1], ratio)) + margins[1]);
                                 return;
                             }
                             else {
@@ -179,7 +179,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                         // not reached desired length yet; keep drawing
                         else {
                             if (draw)
-                                bufferCtx.lineTo(osuPx2screenPx(points[j][0]) + margins[0], osuPx2screenPx(points[j][1]) + margins[1]);
+                                bufferCtx.lineTo(osuCoords2Pixels(points[j][0]) + margins[0], osuCoords2Pixels(points[j][1]) + margins[1]);
                         }
                     }
 

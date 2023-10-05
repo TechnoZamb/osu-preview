@@ -3,7 +3,7 @@ import { rgb } from "./functions.js";
 const { BlobWriter, TextWriter } = zip;
 
 
-const DEFAULT_SKIN_NAME = "defaultskin.zip";
+const DEFAULT_SKIN_NAME = "assets/defaultskin.zip";
 
 let defaultSkinFiles;
 
@@ -23,6 +23,7 @@ const files = {
     "spinner-approachcircle": {},
     "spinner-clear": {},
     "spinner-background": { notRequired: true, tinted: [100, 100, 100] },
+    "followpoint": { enumerable: -1 },
     "cursor": {}
 };
 const oldSpinnerFiles = {
@@ -160,92 +161,16 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         isOldSpinner = false;
     }
 
-    //#region slider balls
-    const sliderbs = [];
-    var index = 0;
-    var sliderb = { baseName: "sliderb", name: "sliderb0", ext: ".png", stage: (loadBeatmapSkin ? 10 : 8) };
-    var stage = 0;
-
-    outer:
-    while (true) {
-        switch (sliderb.stage) {
-            case 10:
-                Object.assign(sliderb, { files: beatmapFiles, name: "sliderb" + index, isHD: false });
-                break;
-            case 9:
-                Object.assign(sliderb, { files: beatmapFiles, name: "sliderb", isHD: false });
-                break;
-            case 8:
-                Object.assign(sliderb, { files: skinFiles, name: "sliderb" + index + "@2x", isHD: true });
-                break;
-            case 7:
-                Object.assign(sliderb, { files: skinFiles, name: "sliderb" + index, isHD: false });
-                break;
-            case 6:
-                Object.assign(sliderb, { files: skinFiles, name: "sliderb@2x", isHD: true });
-                break;
-            case 5:
-                Object.assign(sliderb, { files: skinFiles, name: "sliderb", isHD: false });
-                break;
-            case 4:
-                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb" + index + "@2x", isHD: true });
-                break;
-            case 3:
-                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb" + index, isHD: false });
-                break;
-            case 2:
-                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb@2x", isHD: true });
-                break;
-            case 1:
-                Object.assign(sliderb, { files: defaultSkinFiles, name: "sliderb", isHD: false });
-                break;
-            default:
-                break outer;
-        }
-
-        sliderb.img = await asyncLoadImage(sliderb.files, sliderb.name + sliderb.ext);
-
-        if (sliderb.img) {
-            sliderbs.push(sliderb);
-            if (stage == 0) {
-                if (sliderb.stage <= 2)
-                    break outer;
-                else if (sliderb.stage <= 4)
-                    stage = 4;
-
-                else if (sliderb.stage <= 6)
-                    break outer;
-                else if (sliderb.stage <= 8)
-                    stage = 8;
-
-                else if (sliderb.stage <= 9)
-                    break outer;
-                else
-                    stage = 10;
-            }
-            index++;
-            sliderb = { baseName: "sliderb", ext: ".png", stage: stage };
-        }
-        else {
-            sliderb.stage--;
-            if (sliderb.stage <= 0 || (stage == 4 && sliderb.stage < 3) || (stage == 8 && sliderb.stage < 7) || stage == 10)
-                break outer;
-        }
-    }
-
-    if (sliderbs.length == 0) {
-        throw new Error("No slider ball sprites found");
-    }
-    if ([1, 2, 5, 6, 9].includes(sliderbs[0].stage)) {
-        sliderbs[0].baseName = "sliderb";
-    }
-    else if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
+    // slider balls and follow points
+    const followPoints = await loadEnumerables("followpoint-");
+    const sliderbs = await loadEnumerables("sliderb");
+    if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
         imgs.push(
             { files: defaultSkinFiles, name: "sliderb-nd", baseName: "sliderb-nd", ext: ".png", stage: 1, isHD: false, img: await asyncLoadImage(defaultSkinFiles, "sliderb-nd.png") },
             { files: defaultSkinFiles, name: "sliderb-spec", baseName: "sliderb-spec", ext: ".png", stage: 1, isHD: false, img: await asyncLoadImage(defaultSkinFiles, "sliderb-spec.png") }
         );
     }
-    //#endregion
+
 
     //#region slider start end circles
     for (let x of ["sliderstartcircle", "sliderendcircle"]) {
@@ -320,6 +245,17 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         }
     }
     result["sliderb"] = sliderbs;
+
+
+    for (let i = 0; i < followPoints.length; i++) {
+        if (followPoints[i].isHD) {
+            followPoints[i].img.width /= 2;
+            followPoints[i].img.height /= 2;
+        }
+
+        followPoints[i] = followPoints[i].img;
+    }
+    result["followpoint"] = followPoints;
     //#endregion
 
     result.hitSounds = await loadHitsounds();
@@ -426,6 +362,90 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         }
 
         return result;
+    }
+
+    async function loadEnumerables(enumName) {
+        const enumBaseName = enumName.replace("-", "");
+        const enums = [];
+        var obj = { baseName: enumName, ext: ".png", stage: (loadBeatmapSkin ? 10 : 8) };
+        var index = 0;
+        var stage = 0;
+
+        outer:
+        while (true) {
+            switch (obj.stage) {
+                case 10:
+                    Object.assign(obj, { files: beatmapFiles, name: enumName + index, isHD: false });
+                    break;
+                case 9:
+                    Object.assign(obj, { files: beatmapFiles, name: enumBaseName, isHD: false });
+                    break;
+                case 8:
+                    Object.assign(obj, { files: skinFiles, name: enumName + index + "@2x", isHD: true });
+                    break;
+                case 7:
+                    Object.assign(obj, { files: skinFiles, name: enumName + index, isHD: false });
+                    break;
+                case 6:
+                    Object.assign(obj, { files: skinFiles, name: enumBaseName + "@2x", isHD: true });
+                    break;
+                case 5:
+                    Object.assign(obj, { files: skinFiles, name: enumBaseName, isHD: false });
+                    break;
+                case 4:
+                    Object.assign(obj, { files: defaultSkinFiles, name: enumName + index + "@2x", isHD: true });
+                    break;
+                case 3:
+                    Object.assign(obj, { files: defaultSkinFiles, name: enumName + index, isHD: false });
+                    break;
+                case 2:
+                    Object.assign(obj, { files: defaultSkinFiles, name: enumBaseName + "@2x", isHD: true });
+                    break;
+                case 1:
+                    Object.assign(obj, { files: defaultSkinFiles, name: enumBaseName, isHD: false });
+                    break;
+                default:
+                    break outer;
+            }
+
+            obj.img = await asyncLoadImage(obj.files, obj.name + obj.ext);
+
+            if (obj.img) {
+                enums.push(obj);
+                if (stage == 0) {
+                    if (obj.stage <= 2)
+                        break outer;
+                    else if (obj.stage <= 4)
+                        stage = 4;
+
+                    else if (obj.stage <= 6)
+                        break outer;
+                    else if (obj.stage <= 8)
+                        stage = 8;
+
+                    else if (obj.stage <= 9)
+                        break outer;
+                    else
+                        stage = 10;
+                }
+                index++;
+                obj = { baseName: enumName, ext: ".png", stage: stage };
+            }
+            else {
+                obj.stage--;
+                if (obj.stage <= 0 || (stage == 4 && obj.stage < 3) || (stage == 8 && obj.stage < 7) || stage == 10)
+                    break outer;
+            }
+        }
+
+        if (enums.length == 0) {
+            throw new Error("No sprites found");
+        }
+        if ([1, 2, 5, 6, 9].includes(enums[0].stage)) {
+            enums[0].baseName = enumName;
+        }
+
+        return enums;
     }
 
     async function loadHitsounds() {

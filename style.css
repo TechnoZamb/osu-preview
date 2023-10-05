@@ -148,6 +148,9 @@ footer {
     display: flex;
     align-items: center;
 }
+#footer-title {
+    margin-left: 10px;
+}
 #footer-buttons {
     margin-left: auto;
     margin-right: 12px;

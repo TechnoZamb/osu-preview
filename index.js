@@ -11,8 +11,8 @@ const { BlobReader, ZipReader, BlobWriter, TextWriter } = zip;
 const diff = [
     "katagiri - ch3rry (Short Ver.) (Inverse) [Blossom].osu", 
     "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu", 
-    "yuikonnu - Chikyuu Saigo no Kokuhaku o (Fycho) [Skystar's Kokuhaku].osu"
-][1];
+    "Nanamori-chu  Goraku-bu - Happy Time wa Owaranai (eiri-) [Sotarks' Peace of Mind].osu"
+][2];
 
 var player, progressBar;
 

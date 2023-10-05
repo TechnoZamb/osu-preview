@@ -1,4 +1,4 @@
-defaultskin/
+assets/defaultskin
 skins
 songs
 TODO.md
@@ -6,3 +6,4 @@ cgi-bin
 skin.zip
 skin.osk
 map.zip
+skinn.zip
