@@ -12,7 +12,7 @@ const diff = [
     "katagiri - ch3rry (Short Ver.) (Inverse) [Blossom].osu", 
     "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu", 
     "Nanamori-chu  Goraku-bu - Happy Time wa Owaranai (eiri-) [Sotarks' Peace of Mind].osu"
-][2];
+][1];
 
 var player, progressBar;
 
@@ -101,10 +101,11 @@ async function initOsu() {
 
     const songBlob = await getSong(beatmapFiles, beatmap);
     player = await MusicPlayer.init(songBlob, () => queueHitsounds(player.currentTime));
+    beatmap.duration = player.duration;
     progressBar = new ProgressBar("#progress-bar", player);
     progressBar.onFrame = frame;
     progressBar.onResume = queueHitsounds;
-    player.currentTime = 44.539//parseInt(beatmap.General.PreviewTime) / 1000;
+    player.currentTime = 0//parseInt(beatmap.General.PreviewTime) / 1000;
 
     computeBreaks();
     $("#progress-bar").style["background"] =
@@ -209,9 +210,10 @@ function frame(time) {
     time *= 1000;
 
     if (spinnerspinSource) {
-        const thisSpinner = beatmap.HitObjects.find(x => x.isSpinner && x.time <= time && time < x.endTime);
-        if (thisSpinner) {
-            spinnerspinSource.playbackRate.value = 0.45 + (time - thisSpinner.time) / thisSpinner.duration * 1.6/*1.82*/;
+        const currSpinner = beatmap.HitObjects.find(x => x.isSpinner && x.time <= time && time < x.endTime);
+        if (currSpinner) {
+            spinnerspinSource.playbackRate.value = 0.45 + (time - currSpinner.time) / currSpinner.duration * 1.6/*1.82*/;
+            console.log(spinnerspinSource.playbackRate.value)
         }
     }
 
@@ -435,8 +437,10 @@ const parseBeatmap = (text) => {
     const sliders = [];
     var first = true;
 
-    for (let i = 0; i < result.HitObjects.length; i++) {
-        const obj = result.HitObjects[i];
+    result.HitObjects_drawOrder = result.HitObjects.map(x => x);
+
+    for (let i = 0; i < result.HitObjects_drawOrder.length; i++) {
+        const obj = result.HitObjects_drawOrder[i];
 
         // find current timing point
         while (tpIndex < result.TimingPoints.length && result.TimingPoints[tpIndex][0] <= obj.time) {
@@ -454,15 +458,15 @@ const parseBeatmap = (text) => {
             currentCombo = 1;
             comboIndex += 1;
 
-            if (i == 0 || !(result.HitObjects[i - 1][3] & 8)) {
+            if (i == 0 || !(result.HitObjects_drawOrder[i - 1][3] & 8)) {
                 comboIndex += (((16 & obj.type) + (32 & obj.type) + (64 & obj.type)) >> 4);
             }
         }
         if (obj.isSlider) {
             obj.beatLength = result.TimingPoints[uninheritedTPIndex][1];
             obj.duration = obj.pixelLength / (result.Difficulty.SliderMultiplier * 100 * (inheritedTPIndex == -1 ? 1 : -100 / result.TimingPoints[inheritedTPIndex][1])) * result.TimingPoints[uninheritedTPIndex][1];
-            obj.endTime = obj.time + obj.duration;
-            result.HitObjects.splice(i, 1);
+            obj.endTime = obj.time + obj.duration * obj.slides;
+            result.HitObjects_drawOrder.splice(i, 1);
             sliders.push(obj);
             i--;
         }
@@ -502,12 +506,13 @@ const parseBeatmap = (text) => {
         }   
     }
 
+    // repush sliders into HitObjects_drawOrder
     sliders.sort((a, b) => (a.time + a.duration) - (b.time + b.duration));
     for (let slider of sliders) {
-        let i = result.HitObjects.length - 1;
-        while (i >= 0 && slider.time + slider.duration < result.HitObjects[i].time)
+        let i = result.HitObjects_drawOrder.length - 1;
+        while (i >= 0 && slider.time + slider.duration < result.HitObjects_drawOrder[i].time)
             i--;
-        result.HitObjects.splice(i + 1, 0, slider);
+        result.HitObjects_drawOrder.splice(i + 1, 0, slider);
     }
 
     return result;

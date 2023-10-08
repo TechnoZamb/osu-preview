@@ -6,6 +6,7 @@ import { asyncLoadImage } from "./skin.js";
 let canvasSize = [];
 const minMargin = 20;
 const drawGrid = false;
+const maxRPM = 477;
 
 const BEZIER_SEGMENT_MAX_LENGTH = 10;        // in screen pixels
 export let bezierSegmentMaxLengthSqrd;       // in osu pixels, squared
@@ -18,6 +19,8 @@ export let fieldSize = [], margins, bgSize;
 export let osuCoords2Pixels;
 let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
 let sliderGradientDivisions = 20;
+const trailInterval = 16, longTrailStepLength = 3;
+const precomputedTrailPoints = [];
 
 export async function init(bgURL) {
     canvas = document.querySelector("#main-canvas");
@@ -60,6 +63,37 @@ export async function init(bgURL) {
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[0] * 512, 2) :
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[1] * 384, 2);
 
+    if (main.skin.isLongerCursorTrail) {
+        precalculateTrailPoints();
+    }
+}
+
+const precalculateTrailPoints = () => {
+    let prevTrailPoint;
+
+    for (let time2 = -trailInterval * 34; time2 < main.beatmap.HitObjects.at(-1).endTime; time2 += trailInterval) {
+        let [x, y] = getTrailPoint(time2);
+
+        if (x == null) {
+            precomputedTrailPoints.push([time2, 0]);
+        }
+        else {
+            if (prevTrailPoint) {
+                const thisTrailPoint = [x, y];
+                const dist = distance(thisTrailPoint, prevTrailPoint);
+                let step = prevTrailPoint[2];
+                while (step < dist) {
+                    step += longTrailStepLength;
+                }
+                prevTrailPoint = [x, y, step - dist];
+                precomputedTrailPoints.push([time2, prevTrailPoint[2]]);
+            }
+            else {
+                prevTrailPoint = [x, y, 0];
+                precomputedTrailPoints.push([time2, 0]);
+            }
+        }
+    }
 }
 
 export function render(time) {
@@ -110,11 +144,11 @@ export function render(time) {
     followPoints(time);
 
     // paint hitobjects from last to first
-    var index = main.beatmap.HitObjects.length - 1;
+    var index = main.beatmap.HitObjects_drawOrder.length - 1;
     var approachQueue = [], followQueue = [];
 
     while (index >= 0) {
-        const obj = main.beatmap.HitObjects[index];
+        const obj = main.beatmap.HitObjects_drawOrder[index];
 
         if (obj.time + (obj.isSlider ? obj.duration * obj.slides : (obj.isSpinner ? obj.duration : 0)) + main.beatmap.fadeout < time ||
             obj.time - main.beatmap.preempt > time) {
@@ -187,7 +221,7 @@ export function render(time) {
 
             const _drawEnd = (sprite, position, startTime, scale) => {
                 const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
-                const scale2 = 1 + (scale ? (1 - easeOut(mod((time - startTime) / obj.beatLength, 1))) * 0.3 : 0);
+                const scale2 = 1 + (scale ? (1 - easingFunctions.easeOut(mod((time - startTime) / obj.beatLength, 1))) * 0.3 : 0);
                 ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
                 ctx.drawImage(sprite, osuCoords2Pixels(position[0]) + margins[0] - size[0] / 2 * scale2, osuCoords2Pixels(position[1]) + margins[1] - size[1] / 2 * scale2, size[0] * scale2, size[1] * scale2);
             };
@@ -211,7 +245,7 @@ export function render(time) {
             let i = slideN;
             while (i > 0 && i <= obj.slides && time - (obj.time + obj.duration * i) < main.beatmap.fadeout) {
                 const position = getFollowPosition(obj, obj.pixelLength * (i % 2));
-                const scale = 1 + easeOut(clamp(0, 1 - (obj.time + obj.duration * i + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
+                const scale = 1 + easingFunctions.easeOut(clamp(0, 1 - (obj.time + obj.duration * i + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
                 ctx.globalAlpha = clamp(0, (obj.time + obj.duration * slideN + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
 
                 let size = [osuCoords2Pixels(main.beatmap.radius) / 64 * circleSprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * circleSprite.height];
@@ -231,7 +265,7 @@ export function render(time) {
                 const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
 
                 const _drawArrow = (position, startTime, flip) => {
-                    const scale = 1 + (1 - easeOut(mod((time - startTime) / obj.beatLength, 1))) * 0.3;
+                    const scale = 1 + (1 - easingFunctions.easeOut(mod((time - startTime) / obj.beatLength, 1))) * 0.3;
                     ctx.globalAlpha = clamp(0, (time - startTime) / 150, 1);
                     ctx.save();
                     ctx.translate(osuCoords2Pixels(position[0]) + margins[0], osuCoords2Pixels(position[1]) + margins[1]);
@@ -252,7 +286,7 @@ export function render(time) {
                 // slider arrows expanding and fading out after being tapped
                 let i = slideN;
                 while (i > 0 && i < obj.slides && time - (obj.time + obj.duration * i) < main.beatmap.fadeout) {
-                    const arrowScale = 1 + easeOut(clamp(0, 1 - (obj.time + obj.duration * i + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
+                    const arrowScale = 1 + easingFunctions.easeOut(clamp(0, 1 - (obj.time + obj.duration * i + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
                     ctx.globalAlpha = clamp(0, (obj.time + obj.duration * slideN + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
                     const position = getFollowPosition(obj, obj.pixelLength * (i % 2));
                     ctx.save();
@@ -314,7 +348,7 @@ export function render(time) {
             }
             else {
                 ctx.globalAlpha = clamp(0, (obj.time + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1);
-                circleScale = 1 + easeOut(clamp(0, 1 - (obj.time + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
+                circleScale = 1 + easingFunctions.easeOut(clamp(0, 1 - (obj.time + main.beatmap.fadeout - time) / main.beatmap.fadeout, 1)) * 0.35;
             }
 
             var size = [osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * circleSprite.width * circleScale, osuCoords2Pixels(main.beatmap.radius) * 2 / 128 * circleSprite.height * circleScale];
@@ -390,7 +424,7 @@ export function render(time) {
             else {
                 const pow = 2;
                 const baseTimeMaxRPM = (obj.duration) / 10;
-                const scale = 0.8 + easierOut(clamp(0, (time - obj.time) / (obj.duration * 0.45), 1)) * 0.2;
+                const scale = 0.8 + easingFunctions.easierOut(clamp(0, (time - obj.time) / (obj.duration * 0.45), 1)) * 0.2;
                 let maxRPM, timeMaxRPM;
 
                 // spinner glow
@@ -449,15 +483,6 @@ export function render(time) {
                     osuCoords2Pixels(192) + margins[1] - size[1] / 2, size[0], size[1]);
             }
 
-            const maxRPM = 477;
-            sprite = main.skin["cursor"];
-            const size2 = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height];
-            ctx.save();
-            ctx.translate(osuCoords2Pixels(obj.x) + margins[0], osuCoords2Pixels(obj.y) + margins[1]);
-            ctx.rotate(-clamp(0, time - obj.time, obj.duration) / 1000 / 60 * maxRPM * Math.PI * 2);
-            ctx.drawImage(sprite, -size2[0] / 2, -size2[1] / 2 - 100, size2[0], size2[1]);
-            ctx.restore();
-
             // approach circle
             sprite = main.skin["spinner-approachcircle"];
             const approachScale = 0.05 + clamp(0, (obj.endTime - time) / obj.duration, 1) * 0.95;
@@ -469,7 +494,7 @@ export function render(time) {
             const temp = time - obj.time - obj.duration * 0.45;
             if (temp > 0) {
                 sprite = main.skin["spinner-clear"];
-                const scale = temp < 225 ? (1.7 - easeOut(clamp(0, temp / 225, 1))) : (0.7 + clamp(0, (temp - 225) / 141, 1) * 0.2);
+                const scale = temp < 225 ? (1.7 - easingFunctions.easeOut(clamp(0, temp / 225, 1))) : (0.7 + clamp(0, (temp - 225) / 141, 1) * 0.2);
                 size = [osuCoords2Pixels(sprite.width) * 0.7 * scale, osuCoords2Pixels(sprite.height) * 0.7 * scale];
                 if (ctx.globalAlpha == 1) {
                     ctx.globalAlpha = clamp(0, temp / 366, 1);
@@ -505,7 +530,7 @@ export function render(time) {
 
             // follow circle
             let sprite = main.skin["sliderfollowcircle"];
-            let followScale = 0.5 + easeOut(clamp(0, (time - obj.time) / 150, 1)) * 0.5;
+            let followScale = 0.5 + easingFunctions.easeOut(clamp(0, (time - obj.time) / 150, 1)) * 0.5;
             if (followScale >= 1) {
                 // follow circle expands when touching slider ticks
                 const slideN = Math.max(Math.floor((time - obj.time) / obj.duration), 0);
@@ -555,14 +580,171 @@ export function render(time) {
             // slider follow circle
             const sprite = main.skin["sliderfollowcircle"];
             const followPos = getFollowPosition(obj, obj.slides % 2 ? obj.pixelLength : 0);
-            const scale = 1 - clamp(0, easeOut((time - endTime) / 150) * 0.2, 0.2);
+            const scale = 1 - clamp(0, easingFunctions.easeOut((time - endTime) / 150) * 0.2, 0.2);
             const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * scale, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * scale];
             ctx.globalAlpha = clamp(0, (obj.time + obj.duration * obj.slides - time + 200) / 200, 1);
             ctx.drawImage(sprite, osuCoords2Pixels(followPos[0]) + margins[0] - size[0] / 2, osuCoords2Pixels(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
         }
     }
 
+    // draw cursor
+    if (true || drawCursor) {
+        const trailPoints = [];
+
+        for (let time2 = parseInt(time / trailInterval) * trailInterval - (main.skin.isLongerCursorTrail ? trailInterval * 32 : trailInterval * 10); time2 < time + trailInterval; time2 += trailInterval) {
+            time2 = Math.min(time2, time);
+            let [x, y] = getTrailPoint(time2);
+
+            if (x == null)
+                continue;
+
+            if (main.skin.isLongerCursorTrail) {
+                trailPoints.push([x, y, time2]);
+
+                if (time2 >= time) {
+                    if (trailPoints.length > 0) {
+                        const sprite = main.skin.cursortrail;
+                        const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * 1.6];
+
+                        let leftOverDist = precomputedTrailPoints.find(x => x[0] == parseInt(trailPoints[0][2] / trailInterval) * trailInterval)?.[1] ?? 0;
+                        for (let i = 1; i < trailPoints.length; i++) {
+                            const dist = distance(trailPoints[i], trailPoints[i - 1]);
+                            let step;
+                            for (step = leftOverDist; step < dist; step += longTrailStepLength) {
+                                ctx.globalAlpha = clamp(0, ((i - 1) * trailInterval + (step / dist) * trailInterval) / 350, 1);
+                                ctx.drawImage(sprite,
+                                    osuCoords2Pixels(trailPoints[i - 1][0] + (trailPoints[i][0] - trailPoints[i - 1][0]) * (step / dist)) + margins[0] - size[0] / 2,
+                                    osuCoords2Pixels(trailPoints[i - 1][1] + (trailPoints[i][1] - trailPoints[i - 1][1]) * (step / dist)) + margins[1] - size[1] / 2,
+                                    size[0], size[1]);
+                            }
+                            leftOverDist = step - dist;
+                        }
+                    }
+
+                    ctx.globalAlpha = 1;
+                    let sprite = main.skin.cursor;
+                    let size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * 1.6];
+                    const center = parseInt(main.skin.ini.General.CursorCentre);
+
+                    if (parseInt(main.skin.ini.General.CursorRotate)) {
+                        ctx.save();
+                        ctx.translate(osuCoords2Pixels(x) + margins[0], osuCoords2Pixels(y) + margins[1]);
+                        ctx.rotate(time / 10000 * Math.PI * 2);
+                        ctx.drawImage(sprite, (-size[0] / 2) * center, (-size[1] / 2) * center, size[0], size[1]);
+                        ctx.restore();
+                    }
+                    else {
+                        ctx.drawImage(sprite, osuCoords2Pixels(x) + margins[0] - size[0] / 2 * center, osuCoords2Pixels(y) + margins[1] - size[1] / 2 * center, size[0], size[1]);
+                    }
+
+                    sprite = main.skin.cursormiddle;
+                    size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * 1.6];
+                    ctx.drawImage(sprite, osuCoords2Pixels(x) + margins[0] - size[0] / 2 * center, osuCoords2Pixels(y) + margins[1] - size[1] / 2 * center, size[0], size[1]);
+                }
+            }
+            else {
+                const sprite = time2 < time ? main.skin.cursortrail : main.skin.cursor;
+                const size = [osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2Pixels(main.beatmap.radius) / 64 * sprite.height * 1.6];
+                ctx.globalAlpha = clamp(0, 1 - ((time - time2) / 160) * 0.94, 1);
+                const center = parseInt(main.skin.ini.General.CursorCentre);
+
+                if (time2 < time ? parseInt(main.skin.ini.General.CursorTrailRotate) : parseInt(main.skin.ini.General.CursorRotate)) {
+                    ctx.save();
+                    ctx.translate(osuCoords2Pixels(x) + margins[0], osuCoords2Pixels(y) + margins[1]);
+                    ctx.rotate(time / 10000 * Math.PI * 2);
+                    ctx.drawImage(sprite, (-size[0] / 2) * (time2 < time ? 1 : center), (-size[1] / 2) * (time2 < time ? 1 : center), size[0], size[1]);
+                    ctx.restore();
+                }
+                else {
+                    ctx.drawImage(sprite, osuCoords2Pixels(x) + margins[0] - size[0] / 2 * (time2 < time ? 1 : center),
+                        osuCoords2Pixels(y) + margins[1] - size[1] / 2 * (time2 < time ? 1 : center), size[0], size[1]);
+                }
+            }
+        }
+    }
+
     adjustSliderGradientDivisions();
+}
+
+const getTrailPoint = (t) => {
+    let nextObjIndex = main.beatmap.HitObjects.findIndex(x => x.time >= t);
+    let nextObj = main.beatmap.HitObjects[nextObjIndex];
+    let lastObjIndex = nextObjIndex - 1;
+    let lastObj = main.beatmap.HitObjects[lastObjIndex];
+
+    let easer = easingFunctions.easeOut2;
+    let x = 0, y = 0;
+
+    // after last object
+    if (nextObjIndex == -1) {
+        nextObj = { x: 0, y: 0, time: main.beatmap.duration + 10000, endTime: main.beatmap.duration + 10000 };
+        lastObjIndex = main.beatmap.HitObjects.length - 1;
+        lastObj = main.beatmap.HitObjects[lastObjIndex];
+    }
+    // inside of a spinner
+    if (lastObj?.isSpinner && t < lastObj.endTime) {
+        let angle = (t - lastObj.time) / 1000 / 60 * maxRPM * Math.PI * 2 + Math.PI / 2;
+        if (lastObjIndex > 0) {
+            const prevObj = main.beatmap.HitObjects[lastObjIndex - 1];
+            angle += Math.atan2(192 - prevObj.y, prevObj.x - 256);
+        }
+        [x, y] = [256 + Math.cos(angle) * 50, 192 - Math.sin(angle) * 50];
+    }
+    // inside of a slider
+    else if (lastObj?.isSlider && t < lastObj.endTime) {
+        [x, y] = getFollowPosition(lastObj, (x => parseInt((t - lastObj.time) / lastObj.duration) % 2 ? 1 - x : x)(((t - lastObj.time) % lastObj.duration / lastObj.duration)) * lastObj.pixelLength);
+    }
+    else {
+        // before first object
+        if (nextObjIndex == 0) {
+            // from center to first object animation
+            if (t >= nextObj.time - 1000) {
+                lastObj = { x: 256, y: 192, time: nextObj.time - 1000, endTime: nextObj.time - 1000 };
+            }
+            // from bottom to center animation
+            else if (t >= nextObj.time - 1430) {
+                nextObj = { x: 256, y: 192, time: nextObj.time - 1000, endTime: nextObj.time - 1000 };
+                lastObj = { x: 256, y: 400, time: Math.max(nextObj.time - 1430, -600), endTime: Math.max(nextObj.time - 1430, -600) };
+                easer = easingFunctions.linear;
+            }
+            // don't draw cursor before bottom to center animation
+            else
+                return [null, null];
+        }
+
+        // approaching a spinner
+        if (nextObj.isSpinner) {
+            let startAngle = 0;
+            if (nextObjIndex > 0) {
+                startAngle = Math.atan2(192 - lastObj.y, lastObj.x - 256);
+                easer = easingFunctions.easeIn;
+            }
+            nextObj = {
+                x: 256 + Math.cos(startAngle + Math.PI / 2) * 50, y: 192 - Math.sin(startAngle + Math.PI / 2) * 50,
+                time: nextObj.time, endTime: nextObj.endTime
+            };
+        }
+
+        // just finished spinner
+        if (lastObj.isSpinner) {
+            let angle = lastObj.duration / 1000 / 60 * maxRPM * Math.PI * 2 + Math.PI / 2;
+            if (lastObjIndex > 0) {
+                const prevObj = main.beatmap.HitObjects[lastObjIndex - 1];
+                angle += Math.atan2(192 - prevObj.y, prevObj.x - 256);
+            }
+            [x, y] = [256 + Math.cos(angle) * 50, 192 - Math.sin(angle) * 50];
+            lastObj = { x: x, y: y, time: lastObj.time, endTime: lastObj.endTime };
+        }
+
+        const lastObjEndPos = lastObj.isSlider ? getFollowPosition(lastObj, lastObj.pixelLength * (lastObj.slides % 2)) : [lastObj.x, lastObj.y];
+        const nextObjStartPos = [nextObj.x, nextObj.y];
+        let timePerc = 1 - clamp(0, (nextObj.time - t) / Math.min(nextObj.time - lastObj.endTime, main.beatmap.preempt - 92), 1);
+        timePerc = easer(timePerc);
+        x = lastObjEndPos[0] + (nextObjStartPos[0] - lastObjEndPos[0]) * timePerc;
+        y = lastObjEndPos[1] + (nextObjStartPos[1] - lastObjEndPos[1]) * timePerc;
+    }
+
+    return [x, y];
 }
 
 const getBGDim = (baseBgDim, time) => {
@@ -731,9 +913,10 @@ const followPoints = (time) => {
     }
 }
 
-const easeOut = (t) => {
-    return 1.5 * t / (0.5 + t);
-}
-const easierOut = (t) => {
-    return 1.2 * t / (0.2 + t);
-}
+const easingFunctions = {
+    easeOut: (t) => 1.5 * t / (0.5 + t),
+    easierOut: (t) => 1.2 * t / (0.2 + t),
+    easeOut2: (t) => Math.sin((t * Math.PI) / 2),
+    linear: (t) => t,
+    easeIn: (t) => t * t
+};

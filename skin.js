@@ -24,7 +24,9 @@ const files = {
     "spinner-clear": {},
     "spinner-background": { notRequired: true, tinted: [100, 100, 100] },
     "followpoint": { enumerable: -1 },
-    "cursor": {}
+    "cursor": {},
+    "cursormiddle": {},
+    "cursortrail": {}
 };
 const oldSpinnerFiles = {
     "spinner-circle": {},
@@ -43,6 +45,9 @@ const defaultValues = {            // for skin.ini
     General: {
         AllowSliderBallTint: "1",
         SliderBallFlip: "1",
+        CursorCenter: "1",
+        CursorRotate: "1",
+        CursorTrailRotate: "0", // wiki says default 1...
         LayeredHitSounds: "1"
     },
     Colours: {
@@ -161,6 +166,11 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         isOldSpinner = false;
     }
 
+    let isLongerCursorTrail = false;
+    if (imgs.find(x => x.baseName == "cursormiddle").stage > 2 || imgs.find(x => x.baseName == "cursor").stage < 3) {
+        isLongerCursorTrail = true;
+    }
+
     // slider balls and follow points
     const followPoints = await loadEnumerables("followpoint-");
     const sliderbs = await loadEnumerables("sliderb");
@@ -193,7 +203,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
 
     // loading complete
     //#region construct result
-    var result = { ini: ini, isOldSpinner: isOldSpinner, LayeredHitSounds: ini.General.LayeredHitSounds };
+    var result = { ini: ini, isOldSpinner: isOldSpinner, isLongerCursorTrail: isLongerCursorTrail, LayeredHitSounds: ini.General.LayeredHitSounds };
 
     for (let obj of imgs) {
         if (obj.isHD) {
@@ -286,16 +296,6 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                     }
                 }
             }
-            /*if (val.enumerable && val.enumerable != -1) {
-                for (let i = 0; i <= val.enumerable; i++) {
-                    if (loadBeatmapSkin) {
-                        imgs.push({ files: beatmapFiles, count: i, ext: ".png", baseName: key, stage: 5, isHD: false });
-                    }
-                    else {
-                        imgs.push({ files: skinFiles, count: i, ext: ".png", baseName: key, stage: 4, isHD: true });
-                    }
-                }
-            }*/
             else if (!val.enumerable) {
                 if (loadBeatmapSkin) {
                     imgs.push({ files: beatmapFiles, ext: ".png", baseName: key, stage: 5, isHD: false });
@@ -309,6 +309,13 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                 let ok = false;
 
                 do {
+                    if (obj.baseName == "default-" && (obj.stage == 3 || obj.stage == 4)) {
+                        obj.name = ini.Fonts.HitCirclePrefix + "-" + (obj.count ?? "");
+                    }
+                    else {
+                        obj.name = obj.baseName + (obj.count ?? "");
+                    }
+
                     obj.img = await asyncLoadImage(obj.files, obj.name + (obj.isHD ? "@2x" : "") + obj.ext);
 
                     if (obj.img) {
@@ -345,13 +352,6 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                                     throw new Error();
                                 }
                             }
-                        }
-
-                        if (obj.baseName == "default-" && (obj.stage == 3 || obj.stage == 4)) {
-                            obj.name = ini.Fonts.HitCirclePrefix + "-" + (obj.count ?? "");
-                        }
-                        else {
-                            obj.name = obj.baseName + (obj.count ?? "");
                         }
                     }
 
