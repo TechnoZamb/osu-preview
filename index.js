@@ -20,7 +20,6 @@ export let beatmap, skin;
 export let bgdim = 0.7;
 export let breaks;
 
-var spinnerspinSource;
 
 
 window.addEventListener("load", async (e) => {
@@ -209,18 +208,15 @@ function frame(time) {
 
     time *= 1000;
 
-    if (spinnerspinSource) {
-        const currSpinner = beatmap.HitObjects.find(x => x.isSpinner && x.time <= time && time < x.endTime);
-        if (currSpinner) {
-            spinnerspinSource.playbackRate.value = 0.45 + (time - currSpinner.time) / currSpinner.duration * 1.6/*1.82*/;
-            console.log(spinnerspinSource.playbackRate.value)
-        }
+    const currSpinner = queuedSpinnerSpins.find(x => x[0] <= time && time < x[1]);
+    if (currSpinner) {
+        currSpinner[3].playbackRate.value = 0.45 + (time - currSpinner[2].time) / currSpinner[2].duration * 1.6/*1.82*/;
     }
 
     render.render(time);
 }
 
-let queuedHitsounds = [];
+let queuedHitsounds = [], queuedSpinnerSpins = [];
 const gainNodes = [];
 
 const queueHitsounds = (timeFrom) => {
@@ -232,11 +228,9 @@ const queueHitsounds = (timeFrom) => {
     for (let i = 0; i < queuedHitsounds.length; i++) {
         queuedHitsounds[i].stop(0);
     }
-    try {
-        spinnerspinSource.stop(0);
-    } catch {}
 
     queuedHitsounds = [];
+    queuedSpinnerSpins = [];
 
     let source;
 
@@ -320,12 +314,14 @@ const queueHitsounds = (timeFrom) => {
             }
 
             // spinner spin
-            spinnerspinSource = player.audioContext.createBufferSource();
-            spinnerspinSource.buffer = skin.hitSounds["spinnerspin"];
-            spinnerspinSource.loop = true;
-            spinnerspinSource.connect(volumes.effects[1]);  // spinnerspin is always as 100% volume
-            spinnerspinSource.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
-            spinnerspinSource.stop((obj.endTime - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset);
+            source = player.audioContext.createBufferSource();
+            source.buffer = skin.hitSounds["spinnerspin"];
+            source.loop = true;
+            source.connect(volumes.effects[1]);  // spinnerspin is always as 100% volume
+            source.start((obj.time - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
+            source.stop((obj.endTime - timeFrom) / 1000 + player.audioContext.getOutputTimestamp().contextTime + audioOffset);
+            queuedHitsounds.push(source);
+            queuedSpinnerSpins.push([obj.time, obj.endTime, obj, source]);
 
             // spinner bonus
             for (let i = obj.duration / 1.95; i < obj.duration; i += 140/*125*/) {
