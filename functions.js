@@ -1,3 +1,5 @@
+const { BlobReader, ZipReader } = zip;
+
 export const mod = (a, n) => (a % n + n) % n;
 export const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
 export const lerp = (min, max, t) => (max - min) * t + min;
@@ -14,6 +16,12 @@ export function urlJoin(...args) {
     return normalize(parts);
 }
 export const $ = x => document.querySelector(x);
+export const extractFile = async (blob) => {
+    const zipReader = new ZipReader(new BlobReader(blob));
+    const entries = await zipReader.getEntries();
+    await zipReader.close();
+    return entries;
+}
 
 
 // https://github.com/jfromaniello/url-join/blob/main/lib/url-join.js

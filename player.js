@@ -1,5 +1,5 @@
-import { clamp } from "./functions.js";
-import { volumes } from "./volumes.js";
+import { clamp } from "/functions.js";
+import { volumes } from "/volumes.js";
 
 export class MusicPlayer {
     static #initializing = false;
@@ -10,7 +10,7 @@ export class MusicPlayer {
         MusicPlayer.#initializing = false;
     }
 
-    static async init(file, onResume) {
+    static async init(file) {
         MusicPlayer.#initializing = true;
         const player = new MusicPlayer();
         
@@ -56,7 +56,8 @@ export class MusicPlayer {
         player.duration = player.forwards.duration;
         player.playbackRate = 1;
 
-        if (onResume) player.onResume = onResume;
+        player.playEvent = new Event("play");
+        player.pauseEvent = new Event("pause");
 
         return player;
     }
@@ -70,16 +71,19 @@ export class MusicPlayer {
         }
         this.currentTime = this.currentTime;
         this.audioContext.resume();
-        if (this.onResume) this.onResume();
+        
+        if (this.onPlay) this.onPlay();
     }
 
     pause() {
         this.audioContext.suspend();
         this.forwards.pause();
         this.backwards.pause();
+
+        if (this.onPause) this.onPause();
     }
 
-    changePlayBackRate(value) {
+    changePlaybackRate(value) {
         if (value > 0) {
             value = clamp(0.063, value, 16);
             this.forwards.playbackRate = value;

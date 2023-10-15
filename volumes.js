@@ -1,4 +1,4 @@
-import { clamp } from "./functions.js";
+import { clamp } from "/functions.js";
 
 const volumeControl = document.querySelector("#volume-control");
 let lastScrolls = [];

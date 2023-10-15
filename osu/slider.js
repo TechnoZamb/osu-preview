@@ -1,5 +1,5 @@
-import { osuCoords2PixelsX, margins, bezierSegmentMaxLengthSqrd } from "/osu/render.js";
-import { beatmap } from "/osu/osu.js";
+import { osuCoords2PixelsX, osuCoords2PixelsY, margins, bezierSegmentMaxLengthSqrd } from "/osu/render.js";
+import { beatmap, activeMods } from "/osu/osu.js";
 import { mod, lerp } from "/functions.js";
 
 let factorialsLUT;      // factorials look-up table
@@ -26,7 +26,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
             if (actualLength > length) {
                 const ratio = (length - prevLength) / (actualLength - prevLength);
                 if (draw) {
-                    bufferCtx.lineTo(osuCoords2PixelsX(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2PixelsX(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
+                    bufferCtx.lineTo(osuCoords2PixelsX(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2PixelsY(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
                     break;
                 }
                 else {
@@ -35,7 +35,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
             }
             else {
                 if (draw)
-                    bufferCtx.lineTo(osuCoords2PixelsX(point.x) + margins[0], osuCoords2PixelsX(point.y) + margins[1]);
+                    bufferCtx.lineTo(osuCoords2PixelsX(point.x) + margins[0], osuCoords2PixelsY(point.y) + margins[1]);
             }
 
             prevObj = point;
@@ -49,7 +49,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
             prevLength = actualLength - Math.sqrt(Math.pow(point.x - prevObj.x, 2) + Math.pow(point.y - prevObj.y, 2));
             const ratio = (length - prevLength) / (actualLength - prevLength);
             if (draw)
-                bufferCtx.lineTo(osuCoords2PixelsX(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2PixelsX(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
+                bufferCtx.lineTo(osuCoords2PixelsX(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2PixelsY(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
             else
                 return [prevObj.x + (point.x - prevObj.x) * ratio, prevObj.y + (point.y - prevObj.y) * ratio, Math.atan2(point.y - prevObj.y, point.x - prevObj.x)];
         }
@@ -99,9 +99,12 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
         }
 
         if (draw) {
-            bufferCtx.arc(osuCoords2PixelsX(x) + margins[0], osuCoords2PixelsX(y) + margins[1], osuCoords2PixelsX(r), anglea, anglec, det < 0);
-            if (xincr)
-                bufferCtx.lineTo(osuCoords2PixelsX(c.x + xincr) + margins[0], osuCoords2PixelsX(c.y + yincr) + margins[1]);
+            bufferCtx.arc(osuCoords2PixelsX(x) + margins[0], osuCoords2PixelsY(y) + margins[1], osuCoords2PixelsX(r),
+                anglea * (activeMods.has("hr") ? -1 : 1), anglec * (activeMods.has("hr") ? -1 : 1), ((det < 0) + activeMods.has("hr")) % 2);
+
+            if (xincr) {
+                bufferCtx.lineTo(osuCoords2PixelsX(c.x + xincr) + margins[0], osuCoords2PixelsY(c.y + yincr) + margins[1]);
+            }
         }
         else {
             if (xincr) {
@@ -133,7 +136,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                     if (actualLength > length) {
                         const ratio = (length - prevLength) / (actualLength - prevLength);
                         if (draw) {
-                            bufferCtx.lineTo(osuCoords2PixelsX(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2PixelsX(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
+                            bufferCtx.lineTo(osuCoords2PixelsX(prevObj.x + (point.x - prevObj.x) * ratio) + margins[0], osuCoords2PixelsY(prevObj.y + (point.y - prevObj.y) * ratio) + margins[1]);
                             break; // out
                         }
                         else {
@@ -142,7 +145,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                     }
                     else {
                         if (draw)
-                            bufferCtx.lineTo(osuCoords2PixelsX(point.x) + margins[0], osuCoords2PixelsX(point.y) + margins[1]);
+                            bufferCtx.lineTo(osuCoords2PixelsX(point.x) + margins[0], osuCoords2PixelsY(point.y) + margins[1]);
                     }
 
                     prevObj = point;
@@ -169,7 +172,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                             const prevl = lengths[j - 1] ?? 0;
                             const ratio = (length - (prevl + actualLength)) / (lengths[j] - prevl);
                             if (draw) {
-                                bufferCtx.lineTo(osuCoords2PixelsX(lerp(prevp[0], points[j][0], ratio)) + margins[0], osuCoords2PixelsX(lerp(prevp[1], points[j][1], ratio)) + margins[1]);
+                                bufferCtx.lineTo(osuCoords2PixelsX(lerp(prevp[0], points[j][0], ratio)) + margins[0], osuCoords2PixelsY(lerp(prevp[1], points[j][1], ratio)) + margins[1]);
                                 return;
                             }
                             else {
@@ -179,7 +182,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
                         // not reached desired length yet; keep drawing
                         else {
                             if (draw)
-                                bufferCtx.lineTo(osuCoords2PixelsX(points[j][0]) + margins[0], osuCoords2PixelsX(points[j][1]) + margins[1]);
+                                bufferCtx.lineTo(osuCoords2PixelsX(points[j][0]) + margins[0], osuCoords2PixelsY(points[j][1]) + margins[1]);
                         }
                     }
 

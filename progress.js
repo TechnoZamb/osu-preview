@@ -1,11 +1,9 @@
-import { clamp } from "./functions.js";
+import { clamp } from "/functions.js";
 
 export class ProgressBar {
     easingFactor = 0.2; offset = 0.001;
     targetValue = -1; actualValue = 0.5;
     dragging = false;
-
-    onFrame; onResume;
 
     constructor(element, musicPlayer) {
         if (element instanceof Element)
@@ -32,20 +30,8 @@ export class ProgressBar {
                 this.progressBar.removeAttribute("hover");
             }
         });
-        window.addEventListener("keydown", e => {
-            if (e.code == "Comma") {
-                this.player.currentTime -= 0.00833;
-            }
-            else if (e.code == "Period") {
-                this.player.currentTime += 0.00833;
-            }
-            else if (e.code == "Space") {
-                if (this.player.paused) this.player.play();
-                else this.player.pause();
-            }
-        });
 
-        window.requestAnimationFrame(() => this.frame());
+        this.frame();
     }
 
     frame() {
@@ -79,15 +65,15 @@ export class ProgressBar {
                 this.player.currentTime = actualValue * this.player.duration;
 
                 if (this.dragging) {
-                    this.player.changePlayBackRate(0);
+                    this.player.changePlaybackRate(0);
                 }
                 else {
-                    this.player.changePlayBackRate(1);
+                    this.player.changePlaybackRate(1);
                     if (!this.player.paused) this.player.play();
                 }
             }
             else {
-                this.player.changePlayBackRate((actualValue - prevValue) * this.player.duration / (deltaT / 1000));
+                this.player.changePlaybackRate((actualValue - prevValue) * this.player.duration / (deltaT / 1000));
                 this.player.currentTime = prevValue * this.player.duration;
             }
         }

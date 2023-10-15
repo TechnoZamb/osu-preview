@@ -1,9 +1,8 @@
-import { extractFile } from "./index.js";
-import { rgb } from "./functions.js";
+import { rgb, extractFile } from "/functions.js";
 const { BlobWriter, TextWriter } = zip;
 
 
-const DEFAULT_SKIN_NAME = "assets/defaultskin.zip";
+const DEFAULT_SKIN_NAME = "/assets/defaultskin.zip";
 
 let defaultSkinFiles;
 
@@ -26,7 +25,13 @@ const files = {
     "followpoint": { enumerable: -1 },
     "cursor": {},
     "cursormiddle": {},
-    "cursortrail": {}
+    "cursortrail": {},
+    "selection-mod-easy": {},
+    "selection-mod-hardrock": {},
+    "selection-mod-halftime": {},
+    "selection-mod-doubletime": {},
+    "selection-mod-hidden": {},
+    "selection-mod-autoplay": {},
 };
 const oldSpinnerFiles = {
     "spinner-circle": {},
@@ -68,8 +73,8 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
     }
 
     //#region skin.ini and default skin.ini
-    let defaultIni = defaultSkinFiles["skin.ini"];
-    let ini = skinFiles["skin.ini"];
+    let defaultIni = defaultSkinFiles[Object.keys(defaultSkinFiles).find(x => x.toLowerCase() == "skin.ini")];
+    let ini = skinFiles[Object.keys(skinFiles).find(x => x.toLowerCase() == "skin.ini")];
     if (!ini) {
         if (!defaultIni) {
             throw new Error();
