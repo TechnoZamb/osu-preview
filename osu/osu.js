@@ -1,6 +1,6 @@
 import { options, musicPlayer } from "/index.js";
 import { HitObject } from "/osu/HitObject.js";
-import { parseSkin, asyncLoadImage } from "/osu/skin.js";
+import { parseSkin, loadHitsounds, loadSkin, asyncLoadImage } from "/osu/skin.js";
 import { getFollowPosition, getSliderTicks } from "/osu/slider.js";
 import * as render from "/osu/render.js";
 import { MusicPlayer } from "/player.js";
@@ -9,29 +9,31 @@ import { clamp, distance, extractFile, $ } from "/functions.js";
 const { BlobWriter, TextWriter } = zip;
 
 
-export let beatmap, skin;
+export let beatmap, skin, hitSounds;
 export let breaks;
 export const activeMods = new Set();
 
+let mapsetFiles, skinFiles;
 let queuedHitsounds = [], queuedSpinnerSpins = [];
 const gainNodes = [];
+let precalculatedTrailPoints = false;
 
 // debug
 const diff = [
-    "katagiri - ch3rry (Short Ver.) (Inverse) [Blossom].osu",
+    "Hatsune Miku - Yellow (Krisom) [Insane].osu",
     "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu",
     "Nanamori-chu  Goraku-bu - Happy Time wa Owaranai (eiri-) [Sotarks' Peace of Mind].osu"
-][2];
+][0];
 
 
 export async function initOsu(mapsetURL, skinURL) {
 
     // extract mapset and skin files
     const mapsetBlob = await fetch(mapsetURL).then(r => r.blob());
-    const mapsetFiles = (await extractFile(mapsetBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    mapsetFiles = (await extractFile(mapsetBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
     const skinBlob = await fetch(skinURL).then(r => r.blob());
-    const skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
     // parse beatmap
     //const beatmapText = await getDifficulty(mapsetFiles, "0");
@@ -39,14 +41,13 @@ export async function initOsu(mapsetURL, skinURL) {
     beatmap = parseBeatmap(beatmapText);
 
     computeMapProperties();
-    objStacking();
 
     // get background picture
     const bgBlob = await getBackgroundPictureBlob(mapsetFiles, beatmap);
     beatmap.backgroundPicture = await asyncLoadImage(mapsetFiles, bgBlob);
 
     // parse skin
-    skin = await parseSkin(skinFiles, mapsetFiles, beatmap, true);
+    [skin, hitSounds] = await parseSkin(skinFiles, mapsetFiles, beatmap, options.BeatmapSkin, options.BeatmapHitsounds);
 
     // initialize renderer
     render.init();
@@ -57,8 +58,37 @@ export async function initOsu(mapsetURL, skinURL) {
     beatmap.duration = player.duration;
 
     computeBreaks(player);
+    objStacking();
+
+    if (skin.isLongerCursorTrail) {
+        render.precalculateTrailPoints();
+        precalculatedTrailPoints = true;
+    }
 
     return player;
+}
+
+export async function reloadSkin(skinURL) {
+    if (!mapsetFiles || !beatmap) {
+        return;
+    }
+
+    const skinBlob = await fetch(skinURL).then(r => r.blob());
+    skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    skin = await loadSkin(skinFiles, mapsetFiles, beatmap, options.BeatmapSkin);
+
+    if (skin.isLongerCursorTrail && !precalculatedTrailPoints) {
+        render.precalculateTrailPoints();
+        precalculatedTrailPoints = true;
+    }
+}
+
+export async function reloadHitsounds() {
+    if (!mapsetFiles || !skinFiles || !beatmap) {
+        return;
+    }
+
+    hitSounds = await loadHitsounds(skinFiles, mapsetFiles, beatmap, options.BeatmapHitsounds, skin.LayeredHitSounds);
 }
 
 const parseBeatmap = (text) => {
@@ -217,7 +247,7 @@ const getDifficultyText = async (entries, beatmapID) => {
 }
 
 const getBackgroundPictureBlob = async (entries, beatmap) => {
-    const picFileName = beatmap.Events[0][2].replace(/^"+|"+$/g, '');
+    const picFileName = beatmap.Events.find(x => x[0] == 0)?.[2]?.replace(/^"+|"+$/g, '');
     return picFileName;//await entries[picFileName]?.getData(new BlobWriter());
 }
 
@@ -368,7 +398,7 @@ const computeBreaks = (player) => {
         breaks.push([0, firstObj.time - 550]);
     }
     for (let event of beatmap.Events) {
-        if (parseInt(event[0]) == 2) {
+        if (parseInt(event[0]) == 2 || event[0].toLowerCase() == "break") {
             breaks.push([parseInt(event[1]), parseInt(event[2])]);
         }
     }
@@ -416,7 +446,7 @@ export const queueHitsounds = (timeFrom) => {
                 }
 
                 source = musicPlayer.audioContext.createBufferSource();
-                source.buffer = skin.hitSounds[sound];
+                source.buffer = hitSounds[sound];
                 source.connect(gainNode);
                 source.start(Math.max(time / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset, 0));
                 queuedHitsounds.push(source);
@@ -436,7 +466,7 @@ export const queueHitsounds = (timeFrom) => {
                     }
                 }
 
-                if (obj.edgeSounds[i] == 0 || parseInt(skin.LayeredHitSounds)) {
+                if (obj.edgeSounds[i] == 0 || skin.LayeredHitSounds) {
                     composeSound((obj.edgeSets[i][0] ?? 1), 0, obj.hitSample[2], obj.duration * i);
                 }
             }
@@ -474,13 +504,13 @@ export const queueHitsounds = (timeFrom) => {
                 }
             }
 
-            if (obj.hitSounds == 0 || parseInt(skin.LayeredHitSounds)) {
+            if (obj.hitSounds == 0 || skin.LayeredHitSounds) {
                 composeSound(obj.hitSample[0], 0, obj.hitSample[2], obj.duration);
             }
 
             // spinner spin
             source = musicPlayer.audioContext.createBufferSource();
-            source.buffer = skin.hitSounds["spinnerspin"];
+            source.buffer = hitSounds["spinnerspin"];
             source.loop = true;
             source.connect(volumes.effects[1]);  // spinnerspin is always as 100% volume
             source.start((obj.time - timeFrom) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
@@ -504,7 +534,7 @@ export const queueHitsounds = (timeFrom) => {
                 }
             }
 
-            if (obj.hitSounds == 0 || parseInt(skin.LayeredHitSounds)) {
+            if (obj.hitSounds == 0 || skin.LayeredHitSounds) {
                 composeSound(obj.hitSample[0], 0, obj.hitSample[2]);
             }
         }

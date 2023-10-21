@@ -30,8 +30,7 @@ const files = {
     "selection-mod-hardrock": {},
     "selection-mod-halftime": {},
     "selection-mod-doubletime": {},
-    "selection-mod-hidden": {},
-    "selection-mod-autoplay": {},
+    "selection-mod-hidden": {}
 };
 const oldSpinnerFiles = {
     "spinner-circle": {},
@@ -65,7 +64,13 @@ const defaultValues = {            // for skin.ini
     }
 };
 
-export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmapSkin) {
+export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, useBeatmapSkin, useBeatmapHitsounds) {
+    const skin = await loadSkin(skinFiles, beatmapFiles, beatmapObj, useBeatmapSkin);
+    const hitSounds = await loadHitsounds(skinFiles, beatmapFiles, beatmapObj, useBeatmapHitsounds, skin.LayeredHitSounds);
+    return [skin, hitSounds];
+}
+
+export async function loadSkin(skinFiles, beatmapFiles, beatmapObj, useBeatmapSkin) {
     // load default skin
     if (!defaultSkinFiles) {
         defaultSkinFiles = await fetch(DEFAULT_SKIN_NAME).then(res => res.blob());
@@ -133,7 +138,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
     //#endregion
 
     // try parse map colors
-    if (loadBeatmapSkin && beatmapObj && beatmapObj.Colours) {
+    if (useBeatmapSkin && beatmapObj && beatmapObj.Colours) {
         const tempColors = [];
         for (let i = 1; i < 9; i++) {
             if (beatmapObj.Colours["Combo" + i])
@@ -186,7 +191,6 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         );
     }
 
-
     //#region slider start end circles
     for (let x of ["sliderstartcircle", "sliderendcircle"]) {
         let [circle, overlay] = [imgs.find(y => y.baseName == x), imgs.find(y => y.baseName == x + "overlay")];
@@ -205,10 +209,10 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
         }
     }
     //#endregion
-
+    
     // loading complete
     //#region construct result
-    var result = { ini: ini, isOldSpinner: isOldSpinner, isLongerCursorTrail: isLongerCursorTrail, LayeredHitSounds: ini.General.LayeredHitSounds };
+    var result = { ini: ini, isOldSpinner: isOldSpinner, isLongerCursorTrail: isLongerCursorTrail, LayeredHitSounds: parseInt(ini.General.LayeredHitSounds) };
 
     for (let obj of imgs) {
         if (obj.isHD) {
@@ -272,10 +276,9 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
     }
     result["followpoint"] = followPoints;
     //#endregion
-
-    result.hitSounds = await loadHitsounds();
-
+    
     return result;
+
 
     async function loadAllFiles(fileNames, ini) {
         const result = [];
@@ -293,7 +296,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
 
             if (key == "default-") {
                 for (let i = 0; i <= val.enumerable; i++) {
-                    if (loadBeatmapSkin) {
+                    if (useBeatmapSkin) {
                         imgs.push({ files: beatmapFiles, count: i, ext: ".png", baseName: key, stage: 5, isHD: false });
                     }
                     else {
@@ -302,7 +305,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
                 }
             }
             else if (!val.enumerable) {
-                if (loadBeatmapSkin) {
+                if (useBeatmapSkin) {
                     imgs.push({ files: beatmapFiles, ext: ".png", baseName: key, stage: 5, isHD: false });
                 }
                 else {
@@ -372,7 +375,7 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
     async function loadEnumerables(enumName) {
         const enumBaseName = enumName.replace("-", "");
         const enums = [];
-        var obj = { baseName: enumName, ext: ".png", stage: (loadBeatmapSkin ? 10 : 8) };
+        var obj = { baseName: enumName, ext: ".png", stage: (useBeatmapSkin ? 10 : 8) };
         var index = 0;
         var stage = 0;
 
@@ -452,85 +455,85 @@ export async function parseSkin(skinFiles, beatmapFiles, beatmapObj, loadBeatmap
 
         return enums;
     }
+}
 
-    async function loadHitsounds() {
+export async function loadHitsounds(skinFiles, beatmapFiles, beatmapObj, useBeatmapHitsounds, layeredHitSounds) {
 
-        const soundSet = new Set();
+    const soundSet = new Set();
 
-        for (let obj of beatmapObj.HitObjects) {
-            if (obj.isSlider) {
-                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[1]]}-slider${["slide", "whistle"][obj.hitSounds & 2 ? 1 : 0]}|${obj.hitSample[2]}`);
-                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[0]]}-slidertick|${obj.hitSample[2]}`);
+    for (let obj of beatmapObj.HitObjects) {
+        if (obj.isSlider) {
+            soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[1]]}-slider${["slide", "whistle"][obj.hitSounds & 2 ? 1 : 0]}|${obj.hitSample[2]}`);
+            soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[0]]}-slidertick|${obj.hitSample[2]}`);
 
-                for (let i = 0; i <= obj.slides; i++) {
-                    for (let j = 1; j < 4; j++) {
-                        if (obj.edgeSounds[i] & (2 ** j)) {
-                            soundSet.add(`${[, "normal", "soft", "drum"][obj.edgeSets[i][1]]}-hit${["normal", "whistle", "finish", "clap"][j]}|${obj.hitSample[2]}`);
-                        }
-                    }
-                    if (obj.edgeSounds[i] & 14 == 0 || result.LayeredHitSounds) {
-                        soundSet.add(`${[, "normal", "soft", "drum"][obj.edgeSets[i][0]]}-hitnormal|${obj.hitSample[2]}`);
+            for (let i = 0; i <= obj.slides; i++) {
+                for (let j = 1; j < 4; j++) {
+                    if (obj.edgeSounds[i] & (2 ** j)) {
+                        soundSet.add(`${[, "normal", "soft", "drum"][obj.edgeSets[i][1]]}-hit${["normal", "whistle", "finish", "clap"][j]}|${obj.hitSample[2]}`);
                     }
                 }
-            }
-            if (obj.isSpinner) {
-                soundSet.add("spinnerspin|");
-                soundSet.add("spinnerbonus|");
-            }
-
-            for (let i = 1; i < 4; i++) {
-                if (obj.hitSounds & (2 ** i)) {
-                    soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[1]]}-hit${["normal", "whistle", "finish", "clap"][i]}|${obj.hitSample[2]}`);
+                if (obj.edgeSounds[i] & 14 == 0 || layeredHitSounds) {
+                    soundSet.add(`${[, "normal", "soft", "drum"][obj.edgeSets[i][0]]}-hitnormal|${obj.hitSample[2]}`);
                 }
-            }
-            if (obj.hitSounds & 14 == 0 || result.LayeredHitSounds) {
-                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[0]]}-hitnormal|${obj.hitSample[2]}`);
             }
         }
-
-
-        const tempAudioContext = new AudioContext();
-
-        // load base hitsounds
-        const hitsounds = {};
-        for (let s of soundSet) {
-
-            const [sound, index] = s.split("|");
-            let stage = (loadBeatmapSkin && index != 0) ? 0 : 3;
-
-            do {
-                const file = [
-                    () => beatmapFiles[sound + (index != 1 ? index : "") + ".wav"],
-                    () => beatmapFiles[sound + (index != 1 ? index : "") + ".mp3"],
-                    () => beatmapFiles[sound + (index != 1 ? index : "") + ".wav"],
-                    () => skinFiles[sound + ".wav"],
-                    () => skinFiles[sound + ".mp3"],
-                    () => skinFiles[sound + ".ogg"],
-                    () => defaultSkinFiles[sound + ".wav"],
-                    () => defaultSkinFiles[sound + ".mp3"],
-                    () => defaultSkinFiles[sound + ".ogg"],
-                    () => { { throw new TypeError(`Sound file ${sound} not found`) } }
-                ][stage]();
-
-                if (file) {
-                    const arrayBuffer = await file.getData(new BlobWriter()).then(x => x.arrayBuffer());
-                    let audioBuffer;
-                    try {
-                        audioBuffer = await tempAudioContext.decodeAudioData(arrayBuffer);
-                    }
-                    catch {
-                        audioBuffer = tempAudioContext.createBuffer(1, 1, tempAudioContext.sampleRate);
-                    }
-
-                    // file loaded correctly
-                    hitsounds[sound + index] = audioBuffer;
-                    break;
-                }
-            } while (++stage)
+        if (obj.isSpinner) {
+            soundSet.add("spinnerspin|");
+            soundSet.add("spinnerbonus|");
         }
 
-        return hitsounds;
+        for (let i = 1; i < 4; i++) {
+            if (obj.hitSounds & (2 ** i)) {
+                soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[1]]}-hit${["normal", "whistle", "finish", "clap"][i]}|${obj.hitSample[2]}`);
+            }
+        }
+        if (obj.hitSounds & 14 == 0 || layeredHitSounds) {
+            soundSet.add(`${[, "normal", "soft", "drum"][obj.hitSample[0]]}-hitnormal|${obj.hitSample[2]}`);
+        }
     }
+
+
+    const tempAudioContext = new AudioContext();
+
+    // load base hitsounds
+    const hitsounds = {};
+    for (let s of soundSet) {
+
+        const [sound, index] = s.split("|");
+        let stage = (useBeatmapHitsounds && index != 0) ? 0 : 3;
+
+        do {
+            const file = [
+                () => beatmapFiles[sound + (index != 1 ? index : "") + ".wav"],
+                () => beatmapFiles[sound + (index != 1 ? index : "") + ".mp3"],
+                () => beatmapFiles[sound + (index != 1 ? index : "") + ".wav"],
+                () => skinFiles[sound + ".wav"],
+                () => skinFiles[sound + ".mp3"],
+                () => skinFiles[sound + ".ogg"],
+                () => defaultSkinFiles[sound + ".wav"],
+                () => defaultSkinFiles[sound + ".mp3"],
+                () => defaultSkinFiles[sound + ".ogg"],
+                () => { { throw new TypeError(`Sound file ${sound} not found`) } }
+            ][stage]();
+
+            if (file) {
+                const arrayBuffer = await file.getData(new BlobWriter()).then(x => x.arrayBuffer());
+                let audioBuffer;
+                try {
+                    audioBuffer = await tempAudioContext.decodeAudioData(arrayBuffer);
+                }
+                catch {
+                    audioBuffer = tempAudioContext.createBuffer(1, 1, tempAudioContext.sampleRate);
+                }
+
+                // file loaded correctly
+                hitsounds[sound + index] = audioBuffer;
+                break;
+            }
+        } while (++stage)
+    }
+
+    return hitsounds;
 }
 
 export async function asyncLoadImage(files, name) {
@@ -558,7 +561,6 @@ export async function asyncLoadImage(files, name) {
     await Promise.allSettled([promise]);
     return (image.complete && image.naturalWidth !== 0) ? image : null;
 }
-
 
 function parseIni(text) {
     var result = {};

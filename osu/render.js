@@ -57,13 +57,9 @@ export async function init() {
     bezierSegmentMaxLengthSqrd = fieldSize[0] > fieldSize[1] ?
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[0] * 512, 2) :
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[1] * 384, 2);
-
-    if (skin.isLongerCursorTrail) {
-        precalculateTrailPoints();
-    }
 }
 
-const precalculateTrailPoints = () => {
+export const precalculateTrailPoints = () => {
     let prevTrailPoint;
 
     for (let time2 = -trailInterval * 34; time2 < beatmap.HitObjects.at(-1).endTime; time2 += trailInterval) {
@@ -92,6 +88,7 @@ const precalculateTrailPoints = () => {
 }
 
 export function render(time) {
+
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -583,7 +580,7 @@ export function render(time) {
     }
 
     // draw cursor
-    if (true || drawCursor) {
+    if (options.ShowCursor) {
         const trailPoints = [];
 
         for (let time2 = parseInt(time / trailInterval) * trailInterval - (skin.isLongerCursorTrail ? trailInterval * 32 : trailInterval * 10); time2 < time + trailInterval; time2 += trailInterval) {
@@ -687,7 +684,8 @@ const getTrailPoint = (t) => {
     }
     // inside of a slider
     else if (lastObj?.isSlider && t < lastObj.endTime) {
-        [x, y] = getFollowPosition(lastObj, (x => parseInt((t - lastObj.time) / lastObj.duration) % 2 ? 1 - x : x)(((t - lastObj.time) % lastObj.duration / lastObj.duration)) * lastObj.pixelLength);
+        const len = (t - lastObj.time) % lastObj.duration / lastObj.duration;
+        [x, y] = getFollowPosition(lastObj, (parseInt((t - lastObj.time) / lastObj.duration) % 2 ? 1 - len : len) * lastObj.pixelLength);
     }
     else {
         // before first object
@@ -888,7 +886,7 @@ const followPoints = (time) => {
                     ctx.globalAlpha = 1 - clamp(0, (time - fadeOutTime) / 400, 1);
                 }
 
-                const sprite = skin.followpoint[time >= fadeInTime + 1000 ? 0 : parseInt((time - fadeInTime) / 1000 * skin.followpoint.length)];
+                const sprite = skin.followpoint[time >= fadeInTime + 1000 ? 0 : parseInt(Math.min(time - fadeInTime, 999) / 1000 * skin.followpoint.length)];
                 const size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height];
                 const x = endPoint[0] + (startPoint[0] - endPoint[0]) * animRatio;
                 const y = endPoint[1] + (startPoint[1] - endPoint[1]) * animRatio;

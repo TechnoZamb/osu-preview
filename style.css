@@ -7,11 +7,6 @@
     src: url(assets/AzeretMono.ttf);
 }
 
-.row {
-    width: 100%;
-    display: flex;
-    justify-content: space-evenly;
-}
 .hidden {
     display: none;
 }
@@ -160,34 +155,129 @@ canvas {
 }
 
 #more-tab {
+    display: flex;
+    flex-direction: column;
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: #00000086;
+    font-size: 22px;
+    background: #0000009e;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s linear;
 }
 #more-tab[shown] {
     opacity: 1;
     pointer-events: all;
 }
+.top {
+    height: 250px;
+}
+.row {
+    width: 100%;
+    display: flex;
+    justify-content: space-evenly;
+}
+.top .row:first-child {
+    margin: 72px 0 116px 0;
+}
 .mod {
-    width: 64px;
-    height: 64px;
     position: relative;
+    width: 1px;
+    height: 1px;
+    border-radius: 1000px;
+    transition: box-shadow 0.05s;
 }
 .mod > img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
     transform: translate(-50%, -50%);
     transition: transform 0.1s cubic-bezier(.11,.88,.57,1.69);
 }
 .mod > img[toggled] {
     transform: translate(-50%, -50%) scale(1.15) rotate(9deg);
+}
+.mod:has(img[toggled]) {
+    box-shadow: 0 0 28px 40px #ffffff3b;
+}
+.middle {
+    margin-top: 22px;
+}
+.middle p {
+    margin: 0 0 0 56px;
+}
+#bgdim-wrapper {
+    width: 100%;
+    padding: 16px 56px;
+    box-sizing: border-box;
+    transition: background 0.2s linear;
+}
+#bgdim-wrapper > div {
+    position: relative;
+}
+#background-dim {
+    display: block;
+    appearance: none;
+    background: #793a46;
+    width: 100%;
+    height: 3px;
+    cursor: pointer;
+}
+#background-dim::-webkit-slider-thumb {
+    opacity: 0;
+}
+#slider-thumb {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    border: 2px solid #f78ea0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.bottom {
+    flex: 1;
+    display: flex;
+    align-items: end;
+    padding: 0 30px 20px 10px;
+}
+.left {
+    flex: 1;
+}
+.right {
+}
+.checkbox {
+    display: block;
+    position: relative;
+    margin-bottom: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    width: fit-content;
+    padding: 1px 4px;
+    transition: background 0.1s;
+}
+.checkbox:hover {
+    background: #ffffff18;
+}
+.checkbox::before {
+    content: "";
+    position: absolute;
+    top: 52%;
+    left: -18px;
+    transform: translate(-50%, -50%);
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    border: 1px solid pink;
+    transition: background 0.1s;
+}
+.checkbox[toggled]::before {
+    background: pink;
+}
+#skin-btn {
+    display: block;
 }
 
 footer {
@@ -203,7 +293,7 @@ footer {
     margin-right: 12px;
 }
 .btn-big {
-    width: 160px;
+    min-width: 160px;
     border: none;
     font-family: inherit;
     font-weight: 600;
@@ -215,11 +305,11 @@ footer {
     color: inherit;
     outline: none;
 }
-.btn-big#download-btn {
-    background: linear-gradient(to top, #c73f6b, #ff8dbd);
+.blue {
+    background: linear-gradient(to top, #22468b, #7287c3);
 }
-.btn-big#more-btn {
-    background: linear-gradient(to top, #22468b, #7287c3)
+.pink {
+    background: linear-gradient(to top, #c73f6b, #ff8dbd);
 }
 
 #loading-screen {
@@ -241,8 +331,8 @@ footer {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 150px;
-    height: 150px;
+    width: 126px;
+    height: 126px;
     border-radius: 50%;
     filter: drop-shadow(0 0 3px rgb(93, 93, 93));
     animation: loadingRotate 2s linear infinite;
@@ -254,7 +344,7 @@ footer {
     position: absolute;
     inset: 0px;
     border-radius: 50%;
-    border: 10px solid #FFF;
+    border: 11px solid #FFF;
     animation: var(--spinner-animation);
     clip-path: var(--spinner-clip);
 }

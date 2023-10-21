@@ -11,9 +11,10 @@ var progressBar;
 
 
 export const options = {
-    BeatmapSkin: false,
-    BeatmapHitsounds: true,
-    BackgroundDim: 0.7
+    BeatmapSkin: true,
+    BeatmapHitsounds: false,
+    BackgroundDim: 0.7,
+    ShowCursor: true
 };
 
 export let musicPlayer;
@@ -35,7 +36,7 @@ window.addEventListener("load", async (e) => {
     progressBar.onFrame = frame;
 
     // create mod buttons
-    for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["ao", "autoplay"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"]]) {
+    for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"]]) {
         Object.assign($(`#mod-${x} > img`), {
             src: osu.skin[`selection-mod-${y}`].src,
             width: osu.skin[`selection-mod-${y}`].width * $("body").clientWidth / 800 * 1.5,
@@ -54,8 +55,6 @@ window.addEventListener("load", async (e) => {
 });
 
 function frame(time) {
-    $("#fps").innerHTML = time;
-
     time *= 1000;
 
     osu.adjustSpinnerSpinPlaybackRate(time);
@@ -138,6 +137,78 @@ $("#more-btn").addEventListener("click", e => {
     e.preventDefault();
 });
 
+$("#background-dim").addEventListener("input", e => {
+    options.BackgroundDim = e.target.value / 100;
+    $("#slider-thumb").style.left = e.target.value + "%";
+    e.target.style.background = `linear-gradient(to right, #f78ea0 0%, #f78ea0 calc(${e.target.value}% - 14px), transparent calc(${e.target.value}% - 14px),
+        transparent calc(${e.target.value}% + 12px), #793a46 calc(${e.target.value}% + 12px), #793a46 100%)`;
+});
+let bgDimTimeout;
+$("#background-dim").addEventListener("mousedown", e => {
+    const elem = $("#bgdim-wrapper");
+    const offset = elem.getBoundingClientRect();
+    $("main").appendChild(elem);
+    elem.style.position = "fixed";
+    elem.style.left = offset.left + "px";
+    elem.style.top = offset.top + "px";
+    elem.style.width = offset.width + "px";
+    elem.style.height = offset.height + "px";
+    void elem.offsetWidth;
+    elem.style.background = "#0000009e";
+    
+    const elem2 = $("#background-dim");
+    elem2.value = (e.clientX - elem2.getBoundingClientRect().left) / elem2.clientWidth * 100;
+    elem2.dispatchEvent(new Event("input"));
+
+    $("#more-tab").removeAttribute("shown");
+    if (bgDimTimeout) {
+        clearTimeout(bgDimTimeout);
+    }
+});
+$("#background-dim").addEventListener("mouseup", e => {
+    $("#more-tab").setAttribute("shown", "");
+    const elem = $("#bgdim-wrapper");
+    elem.style.background = "";
+    if (bgDimTimeout) {
+        clearTimeout(bgDimTimeout);
+    }
+    bgDimTimeout = setTimeout(() => {
+        $(".middle").appendChild(elem);
+        elem.style.position = "";
+        elem.style.left = "";
+        elem.style.top = "";
+        elem.style.width = "";
+        elem.style.height = "";
+        bgDimTimeout = null;
+    }, parseFloat(getComputedStyle($("#more-tab")).transitionDuration.split(",")[0]) * 1000);
+});
+document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", async e => {
+    let val;
+    switch (e.target.id) {
+        case "check-cursor": {
+            val = options.ShowCursor = !options.ShowCursor;
+            break;
+        }
+        case "check-maphitounds": {
+            val = options.BeatmapHitsounds = !options.BeatmapHitsounds;
+            await osu.reloadHitsounds();
+            osu.queueHitsounds(musicPlayer.currentTime);
+            break;
+        }
+        case "check-mapskin": {
+            val = options.BeatmapSkin = !options.BeatmapSkin;
+            await osu.reloadSkin("skin.zip");
+            break;
+        }
+    }
+    
+    if (val)
+        e.target.setAttribute("toggled", "");
+    else
+        e.target.removeAttribute("toggled");
+}));
+
+
 
 let expandFirst = false;
 const expandWidget = (src, filter) => {
@@ -146,14 +217,15 @@ const expandWidget = (src, filter) => {
     elem.onload = () => {
         elem.style.transition = "none";
         elem.classList = "";
+        elem.removeAttribute("width");
         void elem.offsetWidth;
+
         elem.style.transition = null;
-        if (filter == "none") {
+        elem.width = elem.width * $("body").clientWidth / 800;
+        if (filter == "none")
             elem.classList.add("expand-and-fade-and-rotate");
-        }
-        else {
+        else
             elem.classList.add("expand-and-fade");
-        }
     };
     elem.src = src;
     elem.style.filter = filter;
@@ -162,7 +234,7 @@ const expandWidget = (src, filter) => {
 const toggleMod = (mod) => {
     osu.toggleMod(mod);
 
-    for (let mod of ["ez","hr","ht","dt","ao","hd"]) {
+    for (let mod of ["ez","hr","ht","dt","hd"]) {
         if (osu.activeMods.has(mod)) {
             $("#mod-" + mod + " > img").setAttribute("toggled", "");
         }

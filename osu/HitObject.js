@@ -1,9 +1,8 @@
-import { activeMods } from "/osu/osu.js";
 import { clamp } from "/functions.js";
 
 export class HitObject {
     constructor(obj, index) {
-        if (!obj || !(obj instanceof Array) || obj.length < 6) {
+        if (!obj || !(obj instanceof Array) || obj.length < 5) {
             throw new TypeError("Argument error");
         }
 

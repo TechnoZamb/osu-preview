@@ -6,6 +6,11 @@
     <script type="module" src="../zip.js"></script>
     <script src="index.js" type="module" defer></script>
     <link rel="stylesheet" href="style.css"></link>
+    <script>
+        function preventFocus(e) {
+            e.relatedTarget ? e.relatedTarget.focus() : e.target.blur();
+        }
+    </script>
 </head>
 <body>
     <main>
@@ -32,29 +37,46 @@
         <img id="expand-1">
         <img id="expand-2">
         <div id="more-tab">
-            <div class="row">
-                <div id="mod-ez" class="mod"><img></div>
-                <div id="mod-ht" class="mod"><img></div>
-                <div id="mod-ao" class="mod"><img></div>
+            <div class="top">
+                <div class="row">
+                    <div id="mod-ez" class="mod"><img></div>
+                    <div id="mod-ht" class="mod"><img></div>
+                </div>
+                <div class="row">
+                    <div id="mod-hr" class="mod"><img></div>    
+                    <div id="mod-dt" class="mod"><img></div>
+                    <div id="mod-hd" class="mod"><img></div>
+                </div>
             </div>
-            <div class="row">
-                <div id="mod-hr" class="mod"><img></div>    
-                <div id="mod-dt" class="mod"><img></div>
-                <div id="mod-hd" class="mod"><img></div>
+            <div class="middle">
+                <p>Background dim</p>
+                <div id="bgdim-wrapper">
+                    <div>
+                        <input id="background-dim" type="range" min="0" max="100" step="1">
+                        <div id="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bottom">
+                <div class="left">
+                    <a>Current skin: YUGEN</a>
+                    <button id="skin-btn" class="btn-big blue">Upload skin</button>
+                </div>
+                <div class="right">
+                    <label id="check-cursor" class="checkbox">Show cursor</label>
+                    <label id="check-maphitounds" class="checkbox">Use beatmap's hitsounds</label>
+                    <label id="check-mapskin" class="checkbox">Use beatmap's skin</label>
+                </div>
             </div>
         </div>
     </main>
     <footer>
-        <div class="hidden">
-            <input type="text" oninput="player.currentTime = this.value">
-            <span id="fps"></span>
-        </div>
         <div id="footer-title">
             <span>osu! preview</span>
         </div>
         <div id="footer-buttons">
-            <button class="btn-big"  id="more-btn">More...</button>
-            <button id="download-btn" class="btn-big">Download</button>
+            <button id="more-btn" class="btn-big blue" onfocus="preventFocus(event)">More...</button>
+            <button id="download-btn" class="btn-big pink" onfocus="preventFocus(event)">Download</button>
         </div>
     </footer>
     <div id="loading-screen">

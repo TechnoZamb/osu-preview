@@ -83,8 +83,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
         // if determinant = 0, the three points are in a straight line, so handle the slider as if it was a linear slider
         if (det == 0) {
             obj.curveType = "L";
-            drawSlider(obj, length, draw, bufferCtx);
-            return;
+            return drawSlider(obj, length, draw, bufferCtx);
         }
 
         const arclength = r * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
@@ -200,9 +199,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
         }
 
         if (!draw) {
-            return obj.curvePoints.at(-1);
-        }
-        else {
+            return [obj.curvePoints.at(-1).x, obj.curvePoints.at(-1).y, 0];
         }
     }
 
