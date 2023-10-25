@@ -23,7 +23,7 @@ const diff = [
     "Hatsune Miku - Yellow (Krisom) [Insane].osu",
     "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu",
     "Nanamori-chu  Goraku-bu - Happy Time wa Owaranai (eiri-) [Sotarks' Peace of Mind].osu"
-][0];
+][1];
 
 
 export async function initOsu(mapsetURL, skinURL) {
@@ -165,6 +165,7 @@ const parseBeatmap = (text) => {
             }
             tpIndex++;
         }
+        tpIndex = Math.max(tpIndex - 1, 0);
 
         if (!obj.isSpinner && (first || obj.isNewCombo)) {
             currentCombo = 1;
@@ -194,22 +195,22 @@ const parseBeatmap = (text) => {
 
         // https://osu.ppy.sh/wiki/en/Client/File_formats/osu_%28file_format%29#hitsounds
         if (obj.hitSample[0] == 0) {
-            obj.hitSample[0] = result.TimingPoints[tpIndex - 1][3];
+            obj.hitSample[0] = result.TimingPoints[tpIndex][3];
         }
         if (obj.hitSample[1] == 0) {
             obj.hitSample[1] = obj.hitSample[0];
         }
         if (obj.hitSample[2] == 0 || obj.isSlider) {    // sliders ignore the index, for some reason
-            obj.hitSample[2] = result.TimingPoints[tpIndex - 1][4];
+            obj.hitSample[2] = result.TimingPoints[tpIndex][4];
         }
         if (obj.hitSample[3] == 0) {
-            obj.hitSample[3] = clamp(0, result.TimingPoints[tpIndex - 1][5], 100);
+            obj.hitSample[3] = clamp(0, result.TimingPoints[tpIndex][5], 100);
         }
 
         if (obj.isSlider) {
             for (let x of obj.edgeSets) {
                 if (x[0] == 0) {
-                    x[0] = result.TimingPoints[tpIndex - 1][3];
+                    x[0] = result.TimingPoints[tpIndex][3];
                 }
                 if (x[1] == 0) {
                     x[1] = x[0];

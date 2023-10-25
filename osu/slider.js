@@ -9,7 +9,7 @@ window.addEventListener("load", async () => {
     factorialsLUT = await fetch("factorials.json").then(r => r.json());
 });
 
-export function drawSlider(obj, length, draw = true, bufferCtx) {
+export function strokeSlider(obj, length, draw = true, bufferCtx) {
     if (draw && length == 0) {
         return [obj.x, obj.y];
     }
@@ -83,7 +83,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
         // if determinant = 0, the three points are in a straight line, so handle the slider as if it was a linear slider
         if (det == 0) {
             obj.curveType = "L";
-            return drawSlider(obj, length, draw, bufferCtx);
+            return strokeSlider(obj, length, draw, bufferCtx);
         }
 
         const arclength = r * (det < 0 ? mod(anglea - anglec, 2 * Math.PI) : mod(anglec - anglea, 2 * Math.PI));
@@ -207,7 +207,7 @@ export function drawSlider(obj, length, draw = true, bufferCtx) {
 }
 
 export function getFollowPosition(obj, length) {
-    return drawSlider(obj, length, false);
+    return strokeSlider(obj, length, false);
 }
 
 export function getSliderTicks(obj, includeEdge) {

@@ -18,6 +18,7 @@ html, body {
     overflow: hidden;
     background-color: gray;
     position: relative;
+    margin: 0;
 }
 body {
     display: flex;
@@ -245,8 +246,6 @@ canvas {
 }
 .left {
     flex: 1;
-}
-.right {
 }
 .checkbox {
     display: block;

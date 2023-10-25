@@ -1,7 +1,7 @@
 import { beatmap, skin, breaks, activeMods } from "/osu/osu.js";
 import { options } from "/index.js";
 import { mod, clamp, lerp, range, rgb, distance, $ } from "/functions.js";
-import { drawSlider, getFollowPosition, getSliderTicks } from "/osu/slider.js";
+import { strokeSlider, getFollowPosition, getSliderTicks } from "/osu/slider.js";
 
 let canvasSize = [];
 const minMargin = 20;
@@ -20,6 +20,7 @@ let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
 let sliderGradientDivisions = 20;
 const trailInterval = 16, longTrailStepLength = 3;
 const precomputedTrailPoints = [];
+let flashlight;
 
 export async function init() {
     canvas = $("#main-canvas");
@@ -57,6 +58,8 @@ export async function init() {
     bezierSegmentMaxLengthSqrd = fieldSize[0] > fieldSize[1] ?
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[0] * 512, 2) :
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[1] * 384, 2);
+
+    flashlight = document.querySelector("#flashlight");
 }
 
 export const precalculateTrailPoints = () => {
@@ -155,7 +158,9 @@ export function render(time) {
 
             var snake;
             if (time < obj.time) {
-                approachQueue.push(obj);
+                if (index == 0 || !activeMods.has("hd")) {
+                    approachQueue.push(obj);
+                }
                 ctx.globalAlpha = clamp(0, (time - (obj.time - beatmap.preempt)) / beatmap.fadein, 1);
                 snake = clamp(0, (time - (obj.time - beatmap.preempt)) / beatmap.fadein, 0.5) * 2;
             }
@@ -163,12 +168,18 @@ export function render(time) {
                 if (time < obj.time + obj.duration * obj.slides + 200) {
                     followQueue.push(obj);
                 }
-                ctx.globalAlpha = clamp(0, (obj.time + obj.duration * obj.slides + beatmap.fadeout - time) / beatmap.fadeout, 1);
+                if (activeMods.has("hd")) {
+                    // TODO: INCORRECT
+                    ctx.globalAlpha = easingFunctions.easeIn(clamp(0, (obj.endTime - time) / (obj.duration * obj.slides), 1));
+                }
+                else {
+                    ctx.globalAlpha = clamp(0, (obj.time + obj.duration * obj.slides + beatmap.fadeout - time) / beatmap.fadeout, 1);
+                }
                 snake = 1;
             }
 
             bufferCtx.moveTo(osuCoords2PixelsX(obj.x) + margins[0], osuCoords2PixelsY(obj.y) + margins[1]);
-            drawSlider(obj, obj.pixelLength * snake, true, bufferCtx);
+            strokeSlider(obj, obj.pixelLength * snake, true, bufferCtx);
 
             const diameter = beatmap.radius * 2 / 512 * fieldSize[0] * 0.8;
             bufferCtx.lineJoin = "round";
@@ -301,14 +312,19 @@ export function render(time) {
 
                 for (let i = 0; i < ticks.length; i++) {
                     const tick = ticks[i];
+                    const tickEndTime = obj.time + obj.duration * n + (n % 2 ? obj.duration - ticks[ticks.length - i - 1] : tick);
 
-                    if (time < obj.time + obj.duration * n + (n % 2 ? obj.duration - ticks[ticks.length - i - 1] : tick)) {
+                    if (time < tickEndTime) {
                         const sprite = skin["sliderscorepoint"];
                         const followPos = getFollowPosition(obj, ((n > 0 && n % 2) ? ticks[ticks.length - i - 1] : tick) / obj.duration * obj.pixelLength);
                         const temp = time - firstTickTime - tick / 2;
                         const scale = temp < 140 ? (0.5 + clamp(0, temp / 140, 1) * 0.7) : (1 + (1 - clamp(0, (temp - 140) / 140, 1)) * 0.2);
                         const size = [osuCoords2PixelsX(beatmap.radius) * 2 / 128 * sprite.width * scale, osuCoords2PixelsX(beatmap.radius) * 2 / 128 * sprite.height * scale];
                         ctx.globalAlpha = clamp(0, temp / 140, 1);
+                        if (activeMods.has("hd") && temp > 140) {
+                            // TODO: incorrect
+                            ctx.globalAlpha = clamp(0, 1 - (temp - 140) / (tickEndTime - (firstTickTime - tick / 2) - 140), 1);
+                        }
                         ctx.drawImage(sprite, osuCoords2PixelsX(followPos[0]) + margins[0] - size[0] / 2, osuCoords2PixelsY(followPos[1]) + margins[1] - size[1] / 2, size[0], size[1]);
 
                         drawn++;
@@ -333,14 +349,37 @@ export function render(time) {
             }
 
             let circleScale;
-            if (time <= obj.time) {
-                approachQueue.push(obj);
-                ctx.globalAlpha = clamp(0, (time - (obj.time - beatmap.preempt)) / beatmap.fadein, 1);
+            if (activeMods.has("hd")) {
+                if (time <= obj.time) {
+                    if (index == 0) {
+                        approachQueue.push(obj);
+                    }
+
+                    const hiddenFadeInStart = obj.time - beatmap.preempt;
+                    const hiddenFadeInEnd = obj.time - (beatmap.preempt * 0.6);
+                    ctx.globalAlpha = clamp(0, 1 - (hiddenFadeInEnd - time) / (hiddenFadeInEnd - hiddenFadeInStart), 1);
+
+                    // hidden hitobject body fadeout
+                    const hiddenFadeOutStart = obj.time - (beatmap.preempt * 0.6);
+                    const hiddenFadeOutEnd = obj.time - (beatmap.preempt * 0.3);
+                    if (time >= hiddenFadeOutStart)
+                        ctx.globalAlpha = clamp(0, (hiddenFadeOutEnd - time) / (hiddenFadeOutEnd - hiddenFadeOutStart), 1);
+                }
+                else {
+                    ctx.globalAlpha = 0;
+                }
                 circleScale = 1;
             }
             else {
-                ctx.globalAlpha = clamp(0, (obj.time + beatmap.fadeout - time) / beatmap.fadeout, 1);
-                circleScale = 1 + easingFunctions.easeOut(clamp(0, 1 - (obj.time + beatmap.fadeout - time) / beatmap.fadeout, 1)) * 0.35;
+                if (time <= obj.time) {
+                    approachQueue.push(obj);
+                    ctx.globalAlpha = clamp(0, (time - (obj.time - beatmap.preempt)) / beatmap.fadein, 1);
+                    circleScale = 1;
+                }
+                else {
+                    ctx.globalAlpha = clamp(0, (obj.time + beatmap.fadeout - time) / beatmap.fadeout, 1);
+                    circleScale = 1 + easingFunctions.easeOut(clamp(0, 1 - (obj.time + beatmap.fadeout - time) / beatmap.fadeout, 1)) * 0.35;
+                }
             }
 
             var size = [osuCoords2PixelsX(beatmap.radius) * 2 / 128 * circleSprite.width * circleScale, osuCoords2PixelsX(beatmap.radius) * 2 / 128 * circleSprite.height * circleScale];
@@ -349,7 +388,7 @@ export function render(time) {
             ctx.drawImage(overlaySprite, osuCoords2PixelsX(obj.x) + margins[0] - size[0] / 2, osuCoords2PixelsY(obj.y) + margins[1] - size[1] / 2, size[0], size[1]);
 
             // draw combo number
-            if (time > obj.time) {
+            if (time > obj.time && !activeMods.has("hd")) {
                 // number disappears 60 ms after being hit
                 ctx.globalAlpha = clamp(0, (obj.time + 60 - time) / 60, 1);
             }
@@ -655,6 +694,17 @@ export function render(time) {
         }
     }
 
+    // flashlight mod
+    if (activeMods.has("fl")) {
+        const [x, y, inSlider] = getTrailPoint(time);
+        ctx.globalAlpha = 1;
+        if (inSlider) {
+            ctx.fillStyle = "#000000a0";
+            ctx.fillRect(0, 0, canvasSize[0], canvasSize[1]);
+        }
+        ctx.drawImage(flashlight, clamp(-1100, osuCoords2PixelsX(x) - 1900/2 + margins[0], 800), clamp(-900, osuCoords2PixelsY(y) - 1500/2 + margins[1], 600));
+    }
+
     adjustSliderGradientDivisions();
 }
 
@@ -665,7 +715,7 @@ const getTrailPoint = (t) => {
     let lastObj = beatmap.HitObjects[lastObjIndex];
 
     let easer = easingFunctions.easeOut2;
-    let x = 0, y = 0;
+    let x = 0, y = 0, inSlider = false;
 
     // after last object
     if (nextObjIndex == -1) {
@@ -684,6 +734,7 @@ const getTrailPoint = (t) => {
     }
     // inside of a slider
     else if (lastObj?.isSlider && t < lastObj.endTime) {
+        inSlider = true;
         const len = (t - lastObj.time) % lastObj.duration / lastObj.duration;
         [x, y] = getFollowPosition(lastObj, (parseInt((t - lastObj.time) / lastObj.duration) % 2 ? 1 - len : len) * lastObj.pixelLength);
     }
@@ -702,7 +753,7 @@ const getTrailPoint = (t) => {
             }
             // don't draw cursor before bottom to center animation
             else
-                return [null, null];
+                return [null, null, false];
         }
 
         // approaching a spinner
@@ -737,7 +788,7 @@ const getTrailPoint = (t) => {
         y = lastObjEndPos[1] + (nextObjStartPos[1] - lastObjEndPos[1]) * timePerc;
     }
 
-    return [x, y];
+    return [x, y, inSlider];
 }
 
 const getBGDim = (baseBgDim, time) => {

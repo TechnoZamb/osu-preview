@@ -30,7 +30,8 @@ const files = {
     "selection-mod-hardrock": {},
     "selection-mod-halftime": {},
     "selection-mod-doubletime": {},
-    "selection-mod-hidden": {}
+    "selection-mod-hidden": {},
+    "selection-mod-flashlight": {}
 };
 const oldSpinnerFiles = {
     "spinner-circle": {},

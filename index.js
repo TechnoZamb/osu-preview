@@ -11,7 +11,7 @@ var progressBar;
 
 
 export const options = {
-    BeatmapSkin: true,
+    BeatmapSkin: false,
     BeatmapHitsounds: false,
     BackgroundDim: 0.7,
     ShowCursor: true
@@ -36,7 +36,7 @@ window.addEventListener("load", async (e) => {
     progressBar.onFrame = frame;
 
     // create mod buttons
-    for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"]]) {
+    for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"], ["fl", "flashlight"]]) {
         Object.assign($(`#mod-${x} > img`), {
             src: osu.skin[`selection-mod-${y}`].src,
             width: osu.skin[`selection-mod-${y}`].width * $("body").clientWidth / 800 * 1.5,
@@ -102,6 +102,16 @@ window.addEventListener("keydown", e => {
         case "KeyD": {
             toggleMod("dt");
             expandWidget(osu.skin["selection-mod-doubletime"].src, osu.activeMods.has("dt") ? "none" : "grayscale(1)");
+            break;
+        }
+        case "KeyF": {
+            toggleMod("hd");
+            expandWidget(osu.skin["selection-mod-hidden"].src, osu.activeMods.has("hd") ? "none" : "grayscale(1)");
+            break;
+        }
+        case "KeyG": {
+            toggleMod("fl");
+            expandWidget(osu.skin["selection-mod-flashlight"].src, osu.activeMods.has("fl") ? "none" : "grayscale(1)");
             break;
         }
         case "Tab": {
@@ -234,7 +244,7 @@ const expandWidget = (src, filter) => {
 const toggleMod = (mod) => {
     osu.toggleMod(mod);
 
-    for (let mod of ["ez","hr","ht","dt","hd"]) {
+    for (let mod of ["ez","hr","ht","dt","hd","fl"]) {
         if (osu.activeMods.has(mod)) {
             $("#mod-" + mod + " > img").setAttribute("toggled", "");
         }
