@@ -1,113 +1,39 @@
 import * as osu from "/osu/osu.js";
-import * as render from "./osu/render.js";
 import { ProgressBar } from "./progress.js";
+import * as render from "./osu/render.js";
 import * as loadingWidget from "/loading.js";
-import { volumes, updateSliders } from "/volumes.js";
 import { $ } from "./functions.js";
+import { volumes } from "./volumes.js";
+
 
 
 var progressBar;
 
 
-export let options = {
+export const options = {
     BeatmapSkin: false,
     BeatmapHitsounds: false,
-    ShowCursor: true,
     BackgroundDim: 0.7,
-    VolumeGeneral: 0.5,
-    VolumeMusic: 1,
-    VolumeEffects: 1
+    ShowCursor: true
 };
 
 export let musicPlayer;
 export let state = "loading";
 let moreTabOpen = false;
 
-let oszBlob, oszFilename;
-let skinBlob, skinName;
-
-
 window.addEventListener("load", async (e) => {
+
     // begin loading process
     loadingWidget.setText("loading assets");
     loadingWidget.show();
 
-    // get current tab URL
-    var tabURL = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/17624#osu/65312" };
-    if (!tabURL) return;
-    tabURL = tabURL.url;
+    // debug
+    try {await fetch("http://localhost:8000/cgi-bin/hello.py")}catch{}
 
-    // match URL with regex
-    const matches = tabURL.match(/^https:\/\/osu.ppy.sh\/beatmapsets\/(\d+)(#[a-z]+)\/(\d+)$/);
-    if (!matches || !matches.length) {
-        alert("not supported on this website");
-        return;
-    }
-    
-    if (matches[2] !== "#osu") {
-        alert("unsupported gamemode");
-        return;
-    }
-    
-    const [ beatmapSetID, beatmapID ] = [ matches[1].toString(), matches[3] ];
-    // try and get downloaded map from storage; if not found, fetch it
-    const storedMap = (await chrome.storage.local.get(beatmapSetID))[beatmapSetID];
-    if (true||!storedMap) {
-        console.log("Beatmap not found in local storage; downloading it");
-        loadingWidget.setText("downloading beatmap");
-        oszBlob = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
-
-        loadingWidget.setText("loading assets");
-        loadingWidget.clearValue();
-        const uint8arr = new Uint8Array(await oszBlob.arrayBuffer());
-        const buffer = new Array(oszBlob.size);
-        for (let i = 0; i < oszBlob.size; i++) {
-            buffer[i] = String.fromCharCode(uint8arr[i]);
-        }
-        chrome.storage.local.set({ [beatmapSetID]: buffer.join("") });
-    }
-    else {
-        console.log("Beatmap found in local storage");
-        // decode stored map
-        const buffer = new Uint8Array(storedMap.length);
-        for (let i = 0; i < storedMap.length; i++) {
-            buffer[i] = storedMap.charCodeAt(i);
-        }
-        oszBlob = new Blob([buffer.buffer]).slice(0, buffer.length, "application/x-osu-beatmap-archive");
-    }
-
-    // try and load user skin; if not found, load empty zip (uses default skin)
-    const userSkin = (await chrome.storage.local.get("skin")).skin;
-    let skinBuffer;
-    if (!userSkin) {
-        // bytes for empty zip
-        skinBuffer = new Uint8Array([80, 75, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        const buffer = new Array(skinBuffer.length);
-        for (let i = 0; i < skinBuffer.length; i++) {
-            buffer[i] = String.fromCharCode(skinBuffer[i]);
-        }
-        chrome.storage.local.set({ skin: buffer.join("") });
-    }
-    else {
-        skinBuffer = new Uint8Array(userSkin.length);
-        for (let i = 0; i < userSkin.length; i++) {
-            skinBuffer[i] = userSkin.charCodeAt(i);
-        }
-    }
-    skinBlob = new Blob([skinBuffer.buffer]).slice(0, skinBuffer.length, "application/x-osu-skin-archive");
-    
-    skinName = (await chrome.storage.local.get("skinName")).skinName ?? "Default skin";
-    $("#skin-name").innerHTML = skinName;
-
-    readOptions();
-
-    musicPlayer = await osu.initOsu(oszBlob, skinBlob, beatmapID);
-    musicPlayer.onPlay = (e) => osu.queueHitsounds(musicPlayer.currentTime);
+    musicPlayer = await osu.initOsu("map.zip", "skin.zip");
     musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
     progressBar = new ProgressBar("#progress-bar", musicPlayer);
     progressBar.onFrame = frame;
-
-    oszFilename = `${beatmapSetID} ${osu.beatmap.Metadata.Artist} - ${osu.beatmap.Metadata.Title}.osz`;
 
     // create mod buttons
     for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"], ["fl", "flashlight"]]) {
@@ -117,15 +43,15 @@ window.addEventListener("load", async (e) => {
             onclick: (e) => toggleMod(x)
         });
     }
-
+    
+    // necessary to sync music and hitsounds
+    musicPlayer.play();
+    musicPlayer.pause();
+    musicPlayer.onPlay = (e) => osu.queueHitsounds(musicPlayer.currentTime);
 
     // finished loading
     state = "ready";
     loadingWidget.hide();
-
-
-    musicPlayer.pause();
-    musicPlayer.play();
 });
 
 function frame(time) {
@@ -134,24 +60,6 @@ function frame(time) {
     osu.adjustSpinnerSpinPlaybackRate(time);
 
     render.render(time);
-}
-
-const downloadMapset = async (url) => {
-    let blob, callback;
-    const promise = new Promise(r => callback = r);
-    const xmlHTTP = new XMLHttpRequest();
-    xmlHTTP.open('GET', url, true);
-    xmlHTTP.responseType = 'arraybuffer';
-    xmlHTTP.onload = function (e) {
-        blob = new Blob([this.response]);
-        callback();
-    };
-    xmlHTTP.onprogress = function (pr) {
-        loadingWidget.setValue(pr.loaded / pr.total);
-    };
-    xmlHTTP.send();
-    await Promise.allSettled([promise]);
-    return blob;
 }
 
 // ------ INPUT ------
@@ -215,11 +123,6 @@ window.addEventListener("keydown", e => {
             e.preventDefault();
         }
     }
-    if (e.code.startsWith("Digit") || e.code.startsWith("Numpad")) {
-        const digit = parseInt(e.code.at(-1));
-        musicPlayer.currentTime = digit / 10 * musicPlayer.duration;
-        osu.queueHitsounds(musicPlayer.currentTime);
-    }
 });
 
 $("canvas").addEventListener("click", e => {
@@ -246,7 +149,6 @@ $("#more-btn").addEventListener("click", e => {
 
 $("#background-dim").addEventListener("input", e => {
     options.BackgroundDim = e.target.value / 100;
-    saveOptions();
     $("#slider-thumb").style.left = e.target.value + "%";
     e.target.style.background = `linear-gradient(to right, #f78ea0 0%, #f78ea0 calc(${e.target.value}% - 14px), transparent calc(${e.target.value}% - 14px),
         transparent calc(${e.target.value}% + 12px), #793a46 calc(${e.target.value}% + 12px), #793a46 100%)`;
@@ -263,7 +165,7 @@ $("#background-dim").addEventListener("mousedown", e => {
     elem.style.height = offset.height + "px";
     void elem.offsetWidth;
     elem.style.background = "#0000009e";
-
+    
     const elem2 = $("#background-dim");
     elem2.value = (e.clientX - elem2.getBoundingClientRect().left) / elem2.clientWidth * 100;
     elem2.dispatchEvent(new Event("input"));
@@ -297,7 +199,7 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
             val = options.ShowCursor = !options.ShowCursor;
             break;
         }
-        case "check-maphitsounds": {
+        case "check-maphitounds": {
             val = options.BeatmapHitsounds = !options.BeatmapHitsounds;
             await osu.reloadHitsounds();
             osu.queueHitsounds(musicPlayer.currentTime);
@@ -305,46 +207,17 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
         }
         case "check-mapskin": {
             val = options.BeatmapSkin = !options.BeatmapSkin;
-            await osu.reloadSkin();
+            await osu.reloadSkin("skin.zip");
             break;
         }
     }
-
-    val ? e.target.setAttribute("toggled", "") : e.target.removeAttribute("toggled");
-    saveOptions();
+    
+    if (val)
+        e.target.setAttribute("toggled", "");
+    else
+        e.target.removeAttribute("toggled");
 }));
-$("#skin-btn").addEventListener("input", async e => {
-    if (e.target.files.length) {
-        const file = e.target.files[0];
-        await osu.reloadSkin(file);
-        await osu.reloadHitsounds();
-        osu.queueHitsounds(musicPlayer.currentTime);
 
-        // save skin to storage
-        const uint8arr = new Uint8Array(await file.arrayBuffer());
-        const buffer = new Array(file.size);
-        for (let i = 0; i < file.size; i++) {
-            buffer[i] = String.fromCharCode(uint8arr[i]);
-        }
-        chrome.storage.local.set({ skin: buffer.join("") });
-
-        let skinName = file.name;
-        const lastPeriod = file.name.lastIndexOf(".");
-        if (lastPeriod != -1) {
-            skinName = skinName.substring(0, lastPeriod);
-        }
-        chrome.storage.local.set({ skinName: skinName });
-        $("#skin-name").innerHTML = skinName;
-
-        // reload mod buttons
-        for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"], ["fl", "flashlight"]]) {
-            Object.assign($(`#mod-${x} > img`), {
-                src: osu.skin[`selection-mod-${y}`].src,
-                width: osu.skin[`selection-mod-${y}`].width * $("body").clientWidth / 800 * 1.5,
-            });
-        }
-    }
-});
 
 
 let expandFirst = false;
@@ -371,51 +244,12 @@ const expandWidget = (src, filter) => {
 const toggleMod = (mod) => {
     osu.toggleMod(mod);
 
-    for (let mod of ["ez", "hr", "ht", "dt", "hd", "fl"]) {
+    for (let mod of ["ez","hr","ht","dt","hd","fl"]) {
         if (osu.activeMods.has(mod)) {
             $("#mod-" + mod + " > img").setAttribute("toggled", "");
         }
-        else {
+        else  {
             $("#mod-" + mod + " > img").removeAttribute("toggled");
         }
     }
 }
-
-const readOptions = async () => {
-    const savedOptions = (await chrome.storage.local.get("options")).options;
-    if (!savedOptions) {
-        chrome.storage.local.set({ options: options });
-    }
-    else {
-        Object.keys(options).forEach(key => {
-            if (savedOptions[key] !== undefined) {
-                options[key] = savedOptions[key];
-            }
-        })
-    }
-
-    volumes.general[0] = options.VolumeGeneral;
-    volumes.music[0] = options.VolumeMusic;
-    volumes.effects[0] = options.VolumeEffects;
-    updateSliders();
-
-    $("#background-dim").value = parseInt(options.BackgroundDim * 100);
-    $("#background-dim").dispatchEvent(new Event("input"));
-
-    options.ShowCursor ? $("#check-cursor").setAttribute("toggled", "") : $("#check-cursor").removeAttribute("toggled");
-    options.BeatmapHitsounds ? $("#check-maphitsounds").setAttribute("toggled", "") : $("#check-maphitsounds").removeAttribute("toggled");
-    options.BeatmapSkin ? $("#check-mapskin").setAttribute("toggled", "") : $("#check-mapskin").removeAttribute("toggled");
-}
-
-export const saveOptions = () => {
-    chrome.storage.local.set({ options: options });
-}
-
-
-document.getElementById("reset").addEventListener("click", e => chrome.storage.local.clear())
-document.getElementById("download-btn").addEventListener("click", e => {
-    chrome.downloads.download({
-        url: URL.createObjectURL(oszBlob),
-        filename: oszFilename
-    })
-})

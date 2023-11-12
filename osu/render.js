@@ -1,5 +1,5 @@
 import { beatmap, skin, breaks, activeMods } from "/osu/osu.js";
-import { options } from "/popup.js";
+import { options } from "/index.js";
 import { mod, clamp, lerp, range, rgb, distance, $ } from "/functions.js";
 import { strokeSlider, getFollowPosition, getSliderTicks } from "/osu/slider.js";
 
@@ -938,7 +938,6 @@ const followPoints = (time) => {
                 }
 
                 const sprite = skin.followpoint[time >= fadeInTime + 1000 ? 0 : parseInt(Math.min(time - fadeInTime, 999) / 1000 * skin.followpoint.length)];
-                if (!sprite) debugger;
                 const size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height];
                 const x = endPoint[0] + (startPoint[0] - endPoint[0]) * animRatio;
                 const y = endPoint[1] + (startPoint[1] - endPoint[1]) * animRatio;
