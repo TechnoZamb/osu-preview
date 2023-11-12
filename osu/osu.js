@@ -403,21 +403,12 @@ const computeBreaks = (player) => {
 
 export const queueHitsounds = (timeFrom) => {
     const playbackRate = musicPlayer.playbackRate;
-
     const audioOffset = 0.06;
-
     timeFrom *= 1000;
 
-    // stop all hitsounds from playing
-    for (let i = 0; i < queuedHitsounds.length; i++) {
-        queuedHitsounds[i].stop(0);
-    }
-
-    queuedHitsounds = [];
-    queuedSpinnerSpins = [];
+    stopQueuedHitsounds();
 
     let source;
-
     for (let obj of beatmap.HitObjects) {
         if (obj.time + (obj.isSlider ? obj.duration * obj.slides : obj.isSpinner ? obj.endTime - obj.time : 0) <= timeFrom) {
             continue;
@@ -530,6 +521,16 @@ export const queueHitsounds = (timeFrom) => {
     }
 }
 
+export const stopQueuedHitsounds = () => {
+    // stop all hitsounds from playing
+    for (let i = 0; i < queuedHitsounds.length; i++) {
+        queuedHitsounds[i].stop(0);
+    }
+
+    queuedHitsounds = [];
+    queuedSpinnerSpins = [];
+}
+
 export const adjustSpinnerSpinPlaybackRate = (time) => {
     const currSpinner = queuedSpinnerSpins.find(x => x[0] <= time && time < x[1]);
     if (currSpinner) {
@@ -588,3 +589,5 @@ export const toggleMod = (mod) => {
         }
     }
 }
+
+export const getPlaySpeed = () => activeMods.has("dt") ? 1.5 : activeMods.has("ht") ? 0.75 : 1;

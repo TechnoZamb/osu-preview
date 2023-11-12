@@ -33,7 +33,7 @@ window.addEventListener("load", async (e) => {
     loadingWidget.show();
 
     // get current tab URL
-    var tabURL = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/17624#osu/65312" };
+    var tabURL = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/1068768#osu/2237466" };
     if (!tabURL) return;
     tabURL = tabURL.url;
 
@@ -52,7 +52,7 @@ window.addEventListener("load", async (e) => {
     const [ beatmapSetID, beatmapID ] = [ matches[1].toString(), matches[3] ];
     // try and get downloaded map from storage; if not found, fetch it
     const storedMap = (await chrome.storage.local.get(beatmapSetID))[beatmapSetID];
-    if (true||!storedMap) {
+    if (!storedMap) {
         console.log("Beatmap not found in local storage; downloading it");
         loadingWidget.setText("downloading beatmap");
         oszBlob = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
