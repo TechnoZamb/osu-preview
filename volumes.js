@@ -1,3 +1,4 @@
+import { options, saveOptions } from "/popup.js";
 import { clamp } from "/functions.js";
 
 const volumeControl = document.querySelector("#volume-control");
@@ -44,6 +45,11 @@ document.addEventListener("wheel", e => {
             timeout = null;
         }, 1500);
     }
+
+    options.VolumeGeneral = volumes.general[0];
+    options.VolumeMusic = volumes.music[0];
+    options.VolumeEffects = volumes.effects[0];
+    saveOptions();
 });
 volumeControl.addEventListener("mouseenter", e => {
     if (timeout) clearTimeout(timeout);
@@ -55,3 +61,14 @@ volumeControl.addEventListener("mouseleave", e => {
         timeout = null;
     }, 1000);
 });
+
+export const updateSliders = () => {
+    volumeControl.querySelector("#volume-music").style.setProperty("--value", volumes.music[0]);
+    volumeControl.querySelector("#volume-effects").style.setProperty("--value", volumes.effects[0]);
+    volumeControl.querySelector("#volume-general").style.setProperty("--value", volumes.general[0]);
+    volumeControl.querySelector("#volume-general > img").src =
+        (volumes.general[0] == 0 ? "assets/volume-xmark-solid.svg" :
+         volumes.general[0] >= 0.75 ? "assets/volume-high-solid.svg" :
+         volumes.general[0] >= 0.25 ? "assets/volume-medium-solid.svg" : "assets/volume-low-solid.svg");
+
+}

@@ -1,4 +1,4 @@
-import { options, musicPlayer } from "/index.js";
+import { options, musicPlayer } from "/popup.js";
 import { HitObject } from "/osu/HitObject.js";
 import { parseSkin, loadHitsounds, loadSkin, asyncLoadImage } from "/osu/skin.js";
 import { getFollowPosition, getSliderTicks } from "/osu/slider.js";
@@ -26,18 +26,15 @@ const diff = [
 ][1];
 
 
-export async function initOsu(mapsetURL, skinURL) {
+export async function initOsu(mapsetBlob, skinBlob, beatmapID) {
 
     // extract mapset and skin files
-    const mapsetBlob = await fetch(mapsetURL).then(r => r.blob());
     mapsetFiles = (await extractFile(mapsetBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
-
-    const skinBlob = await fetch(skinURL).then(r => r.blob());
     skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
     // parse beatmap
-    //const beatmapText = await getDifficulty(mapsetFiles, "0");
-    const beatmapText = await mapsetFiles[diff].getData(new TextWriter());
+    const beatmapText = await getDifficultyText(beatmapID);
+    //const beatmapText = await mapsetFiles[diff].getData(new TextWriter());
     beatmap = parseBeatmap(beatmapText);
 
     computeMapProperties();
@@ -68,13 +65,14 @@ export async function initOsu(mapsetURL, skinURL) {
     return player;
 }
 
-export async function reloadSkin(skinURL) {
+export async function reloadSkin(skinBlob) {
     if (!mapsetFiles || !beatmap) {
         return;
     }
 
-    const skinBlob = await fetch(skinURL).then(r => r.blob());
-    skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    if (skinBlob) {
+        skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    }
     skin = await loadSkin(skinFiles, mapsetFiles, beatmap, options.BeatmapSkin);
 
     if (skin.isLongerCursorTrail && !precalculatedTrailPoints) {
@@ -233,18 +231,8 @@ const parseBeatmap = (text) => {
     return result;
 }
 
-const getDifficultyText = async (entries, beatmapID) => {
-    for (let diff in entries) {
-        if (diff.endsWith(".osu")) {
-            const text = await entries[diff].getData(new TextWriter());
-
-            // get BeatmapID
-            const id = text.match(/(?<=BeatmapID:)\d+/);
-            if (id == beatmapID) {
-                return text;
-            }
-        }
-    }
+const getDifficultyText = async (beatmapID) => {
+    return await fetch("https://osu.ppy.sh/osu/" + beatmapID).then(res => res.text());
 }
 
 const getBackgroundPictureBlob = async (entries, beatmap) => {

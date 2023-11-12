@@ -1,17 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script type="module" src="../zip.js"></script>
-    <script src="index.js" type="module" defer></script>
+    <script src="popup.js" type="module" defer></script>
     <link rel="stylesheet" href="style.css"></link>
-    <script>
-        function preventFocus(e) {
-            e.relatedTarget ? e.relatedTarget.focus() : e.target.blur();
-        }
-    </script>
 </head>
+
 <body>
     <main>
         <canvas id="main-canvas" width="800" height="540"></canvas>
@@ -44,7 +41,7 @@
                     <div id="mod-fl" class="mod"><img></div>
                 </div>
                 <div class="row">
-                    <div id="mod-hr" class="mod"><img></div>    
+                    <div id="mod-hr" class="mod"><img></div>
                     <div id="mod-dt" class="mod"><img></div>
                     <div id="mod-hd" class="mod"><img></div>
                 </div>
@@ -60,12 +57,15 @@
             </div>
             <div class="bottom">
                 <div class="left">
-                    <a>Current skin: YUGEN</a>
-                    <button id="skin-btn" class="btn-big blue">Upload skin</button>
+                    <p>Current skin: <a id="skin-name"></a></p>
+                    <label id="skin-btn" class="btn-big blue">
+                        <input type="file" class="hidden"></input>
+                        Upload skin
+                    </label>
                 </div>
                 <div class="right">
                     <label id="check-cursor" class="checkbox">Show cursor</label>
-                    <label id="check-maphitounds" class="checkbox">Use beatmap's hitsounds</label>
+                    <label id="check-maphitsounds" class="checkbox">Use beatmap's hitsounds</label>
                     <label id="check-mapskin" class="checkbox">Use beatmap's skin</label>
                 </div>
             </div>
@@ -76,8 +76,8 @@
             <span>osu! preview</span>
         </div>
         <div id="footer-buttons">
-            <button id="more-btn" class="btn-big blue" onfocus="preventFocus(event)">More...</button>
-            <button id="download-btn" class="btn-big pink" onfocus="preventFocus(event)">Download</button>
+            <button id="more-btn" class="btn-big blue">More...</button>
+            <button id="download-btn" class="btn-big pink">Download</button>
         </div>
     </footer>
     <div id="loading-screen">
@@ -87,5 +87,10 @@
         <span id="loading-progress"></span>
     </div>
     <img id="flashlight" src="assets/flashlight.png" class="hidden">
+
+    <div class="hidden">
+        <button id="reset">reset</button>
+    </div>
 </body>
+
 </html>
