@@ -202,7 +202,7 @@ canvas {
     box-shadow: 0 0 28px 40px #ffffff3b;
 }
 .middle {
-    margin-top: 22px;
+    margin-top: 34px;
 }
 .middle p {
     margin: 0 0 0 56px;
@@ -242,10 +242,28 @@ canvas {
     flex: 1;
     display: flex;
     align-items: end;
-    padding: 0 30px 20px 10px;
+    padding: 0 30px 40px 20px;
 }
 .left {
     flex: 1;
+    max-width: 100%;
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+.left > p {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 10px;
+}
+#skin-btn {
+    display: block;
+    width: fit-content;
+    text-align: center;
+}
+.right {
+    margin-left: 60px;
 }
 .checkbox {
     display: block;
@@ -275,9 +293,6 @@ canvas {
 .checkbox[toggled]::before {
     background: pink;
 }
-#skin-btn {
-    display: block;
-}
 
 footer {
     flex: 1;
@@ -299,7 +314,6 @@ footer {
     font-size: 20px;
     padding: 7px 0;
     border-radius: 1000px;
-    margin-left: 8px;
     cursor: pointer;
     color: inherit;
     outline: none;
@@ -309,6 +323,9 @@ footer {
 }
 .pink {
     background: linear-gradient(to top, #c73f6b, #ff8dbd);
+}
+#download-btn {
+    margin-left: 8px;
 }
 
 #loading-screen {
