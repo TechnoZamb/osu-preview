@@ -60,18 +60,17 @@ export class MusicPlayer {
     }
 
     play() {
-        this.audio.play();
         this.currentTime = this.currentTime;
-        this.audioContext.resume();
-        
         if (this.onPlay) this.onPlay();
+        this.audio.play();
+        this.audioContext.resume();
     }
 
     pause() {
+        this.currentTime = this.currentTime;
+        if (this.onPause) this.onPause();
         this.audio.pause();
         this.audioContext.suspend();
-
-        if (this.onPause) this.onPause();
     }
 
     softPlay() {
@@ -79,7 +78,7 @@ export class MusicPlayer {
         this.currentTime = this.currentTime;
     }
 
-    changePlaybackRate(value) {console.log(value)
+    changePlaybackRate(value) {
         if (value != 0) {
             value = clamp(0.5, Math.abs(value), 16);
         }

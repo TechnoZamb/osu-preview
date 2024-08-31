@@ -3,7 +3,7 @@ import * as render from "./osu/render.js";
 import { ProgressBar } from "./progress.js";
 import * as loadingWidget from "/loading.js";
 import { volumes, updateSliders } from "/volumes.js";
-import { $ } from "./functions.js";
+import { $, sleep } from "./functions.js";
 
 
 var progressBar;
@@ -27,6 +27,13 @@ let oszBlob, oszFilename;
 let skinBlob, skinName;
 
 
+
+["error", "unhandledrejection"].forEach(x => window.addEventListener(x, async (e) => {
+    console.error(e);
+    try { musicPlayer.pause(); } catch {}
+    try { loadingWidget.error(); } catch { alert("An error occured. Contact the developer"); }
+}));
+
 window.addEventListener("load", async (e) => {
     // begin loading process
     loadingWidget.setText("loading assets");
@@ -40,18 +47,18 @@ window.addEventListener("load", async (e) => {
     // match URL with regex
     const matches = tabURL.match(/^https:\/\/osu.ppy.sh\/beatmapsets\/(\d+)(#[a-z]+)\/(\d+)$/);
     if (!matches || !matches.length) {
-        alert("not supported on this website");
+        loadingWidget.error("not supported on this website");
         return;
     }
     
     if (matches[2] !== "#osu") {
-        alert("unsupported gamemode");
+        loadingWidget.error("unsupported gamemode");
         return;
     }
     
     const [ beatmapSetID, beatmapID ] = [ matches[1].toString(), matches[3] ];
     // try and get downloaded map from storage; if not found, fetch it
-    const storedMap = (await chrome.storage.local.get(beatmapSetID))[beatmapSetID];
+    const storedMap = (await chrome.storage.local.get("b-"+beatmapSetID))["b-"+beatmapSetID];
     if (!storedMap) {
         console.log("Beatmap not found in local storage; downloading it");
         loadingWidget.setText("downloading beatmap");
@@ -64,7 +71,12 @@ window.addEventListener("load", async (e) => {
         for (let i = 0; i < oszBlob.size; i++) {
             buffer[i] = String.fromCharCode(uint8arr[i]);
         }
-        chrome.storage.local.set({ [beatmapSetID]: buffer.join("") });
+
+        // save mapset and current time
+        await chrome.storage.local.set({
+            ["b-" + beatmapSetID]: buffer.join(""),             // b for beatmapSet
+            ["t-" + beatmapSetID]: new Date().toISOString()     // t for time
+        });
     }
     else {
         console.log("Beatmap found in local storage");
@@ -75,6 +87,8 @@ window.addEventListener("load", async (e) => {
         }
         oszBlob = new Blob([buffer.buffer]).slice(0, buffer.length, "application/x-osu-beatmap-archive");
     }
+    
+    clearOldMaps();
 
     // try and load user skin; if not found, load empty zip (uses default skin)
     const userSkin = (await chrome.storage.local.get("skin")).skin;
@@ -103,7 +117,6 @@ window.addEventListener("load", async (e) => {
 
     musicPlayer = await osu.initOsu(oszBlob, skinBlob, beatmapID);
     musicPlayer.onPlay = (e) => osu.queueHitsounds(musicPlayer.currentTime);
-    musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
     progressBar = new ProgressBar("#progress-bar", musicPlayer);
     progressBar.onFrame = frame;
 
@@ -118,21 +131,23 @@ window.addEventListener("load", async (e) => {
         });
     }
 
+    volumes.general[1].gain.value = 0;
+    musicPlayer.play();
+    await sleep(100);
+    volumes.general[1].gain.value = volumes.general[0];
+    musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
+    musicPlayer.play();
 
     // finished loading
     state = "ready";
     loadingWidget.hide();
 
-
-    musicPlayer.pause();
-    musicPlayer.play();
 });
 
 function frame(time) {
     time *= 1000;
 
     osu.adjustSpinnerSpinPlaybackRate(time);
-
     render.render(time);
 }
 
@@ -140,10 +155,10 @@ const downloadMapset = async (url) => {
     let blob, callback;
     const promise = new Promise(r => callback = r);
     const xmlHTTP = new XMLHttpRequest();
-    xmlHTTP.open('GET', url, true);
-    xmlHTTP.responseType = 'arraybuffer';
+    xmlHTTP.open("GET", url, true);
+    xmlHTTP.responseType = "arraybuffer";
     xmlHTTP.onload = function (e) {
-        blob = new Blob([this.response]);
+        blob = new Blob([this.response]).slice(0, this.response.byteLength, "application/x-osu-beatmap-archive");
         callback();
     };
     xmlHTTP.onprogress = function (pr) {
@@ -154,8 +169,26 @@ const downloadMapset = async (url) => {
     return blob;
 }
 
+const clearOldMaps = async () => {
+    const allStorage = await chrome.storage.local.get(null);
+
+    for (let key of Object.keys(allStorage)) {
+        // if this key is a mapset
+        if (key.startsWith("b-")) {
+            // get time
+            const cachedTime = allStorage["t-" + key.substring(2)] ?? "0";
+            
+            // if cached map older than 1 hour, remove
+            const maxTimeDiff = 1 * 1000 * 60 * 60;
+            if (new Date() - maxTimeDiff > new Date(cachedTime)) {
+                chrome.storage.local.remove([ key, "t-" + key.substring(2) ]);
+            }
+        }
+    }
+}
+
 // ------ INPUT ------
-window.addEventListener("keydown", e => {
+window.addEventListener("keydown", e => {console.log(e)
     if (state !== "ready") return;
 
     switch (e.code) {
@@ -174,6 +207,16 @@ window.addEventListener("keydown", e => {
                 musicPlayer.pause();
                 expandWidget("assets/pause.png");
             }
+            break;
+        }
+        case "ArrowLeft": {
+            musicPlayer.currentTime -= 2;
+            if (!musicPlayer.paused) musicPlayer.play();
+            break;
+        }
+        case "ArrowRight": {
+            musicPlayer.currentTime += 2;
+            if (!musicPlayer.paused) musicPlayer.play();
             break;
         }
         case "KeyQ": {
@@ -213,12 +256,13 @@ window.addEventListener("keydown", e => {
             else
                 $("#more-tab").removeAttribute("shown");
             e.preventDefault();
+            break;
         }
     }
     if (e.code.startsWith("Digit") || e.code.startsWith("Numpad")) {
         const digit = parseInt(e.code.at(-1));
         musicPlayer.currentTime = digit / 10 * musicPlayer.duration;
-        osu.queueHitsounds(musicPlayer.currentTime);
+        if (!musicPlayer.paused) musicPlayer.play();
     }
 });
 
@@ -242,6 +286,12 @@ $("#more-btn").addEventListener("click", e => {
     else
         $("#more-tab").removeAttribute("shown");
     e.preventDefault();
+});
+$("#download-btn").addEventListener("click", e => {
+    chrome.downloads.download({
+        url: URL.createObjectURL(oszBlob),
+        filename: oszFilename
+    })
 });
 
 $("#background-dim").addEventListener("input", e => {
@@ -300,7 +350,7 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
         case "check-maphitsounds": {
             val = options.BeatmapHitsounds = !options.BeatmapHitsounds;
             await osu.reloadHitsounds();
-            osu.queueHitsounds(musicPlayer.currentTime);
+            if (!musicPlayer.paused) musicPlayer.play();
             break;
         }
         case "check-mapskin": {
@@ -318,7 +368,7 @@ $("#skin-btn").addEventListener("input", async e => {
         const file = e.target.files[0];
         await osu.reloadSkin(file);
         await osu.reloadHitsounds();
-        osu.queueHitsounds(musicPlayer.currentTime);
+        if (!musicPlayer.paused) musicPlayer.play();
 
         // save skin to storage
         const uint8arr = new Uint8Array(await file.arrayBuffer());
@@ -410,12 +460,3 @@ const readOptions = async () => {
 export const saveOptions = () => {
     chrome.storage.local.set({ options: options });
 }
-
-
-document.getElementById("reset").addEventListener("click", e => chrome.storage.local.clear())
-document.getElementById("download-btn").addEventListener("click", e => {
-    chrome.downloads.download({
-        url: URL.createObjectURL(oszBlob),
-        filename: oszFilename
-    })
-})

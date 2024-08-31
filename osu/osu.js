@@ -6,7 +6,7 @@ import * as render from "/osu/render.js";
 import { MusicPlayer } from "/player.js";
 import { volumes } from "/volumes.js";
 import { clamp, distance, extractFile, $ } from "/functions.js";
-const { BlobWriter, TextWriter } = zip;
+const { BlobWriter } = zip;
 
 
 export let beatmap, skin, hitSounds;
@@ -17,13 +17,6 @@ let mapsetFiles, skinFiles;
 let queuedHitsounds = [], queuedSpinnerSpins = [];
 const gainNodes = [];
 let precalculatedTrailPoints = false;
-
-// debug
-const diff = [
-    "Hatsune Miku - Yellow (Krisom) [Insane].osu",
-    "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu",
-    "Nanamori-chu  Goraku-bu - Happy Time wa Owaranai (eiri-) [Sotarks' Peace of Mind].osu"
-][1];
 
 
 export async function initOsu(mapsetBlob, skinBlob, beatmapID) {

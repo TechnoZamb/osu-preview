@@ -72,7 +72,10 @@ export class ProgressBar {
                 }
                 else {
                     this.player.changePlaybackRate(getPlaySpeed());
-                    if (!this.player.paused) this.player.play();
+                    if (!this.player.paused) {
+                        this.player.pause();
+                        this.player.play();
+                    }
                 }
             }
             else {

@@ -4,6 +4,7 @@ const screen = $("#loading-screen");
 const canvas = $("#loading-canvas");
 const ctx = canvas.getContext("2d");
 const spinner = $("#loading-spinner");
+const face = $("#loading-face");
 const text = $("#loading-text");
 const progress = $("#loading-progress");
 
@@ -127,4 +128,14 @@ export const clearValue = () => {
     progress.innerHTML = "";
     spinner.style.setProperty("--spinner-animation", "");
     spinner.style.setProperty("--spinner-clip", "none");
+}
+
+export const error = (errText) => {
+    text.innerHTML = errText ?? "an error occured.";
+    screen.classList.add("error");
+    spinner.style.display = "none";
+    face.style.display = "block";
+    void face.offsetWidth;
+    face.style.opacity = 1;
+    face.style.transform = "translate(-50%, -50%)";
 }
