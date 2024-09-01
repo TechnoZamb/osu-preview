@@ -7,19 +7,6 @@
     "background": {
       "service_worker": "background.js"
     },
-    "content_scripts": [
-      {
-        "matches": ["https://osu.ppy.sh/*"],
-        "js": ["contentScript.js"]
-      }
-    ],
-    "web_accessible_resources": [
-      {
-        "resources": [
-        ],
-        "matches": ["https://*.youtube.com/*"]
-      }
-    ],
     "action": {
       "default_title": "osu! preview",
       "default_popup": "popup.html"

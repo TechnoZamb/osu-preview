@@ -14,7 +14,7 @@ export let options = {
     BeatmapHitsounds: false,
     ShowCursor: true,
     BackgroundDim: 0.7,
-    VolumeGeneral: 0.5,
+    VolumeGeneral: 0.2,
     VolumeMusic: 1,
     VolumeEffects: 1
 };
@@ -23,15 +23,18 @@ export let musicPlayer;
 export let state = "loading";
 let moreTabOpen = false;
 
+let beatmapSetID, beatmapID;
 let oszBlob, oszFilename;
 let skinBlob, skinName;
 
+export const isDebug = !(chrome && chrome.tabs && chrome.storage);
 
-
+let error = false;
 ["error", "unhandledrejection"].forEach(x => window.addEventListener(x, async (e) => {
-    console.error(e);
-    try { musicPlayer.pause(); } catch {}
+    if (error) return;
+    try { musicPlayer.pause(); } catch { }
     try { loadingWidget.error(); } catch { alert("An error occured. Contact the developer"); }
+    error = true;
 }));
 
 window.addEventListener("load", async (e) => {
@@ -39,79 +42,88 @@ window.addEventListener("load", async (e) => {
     loadingWidget.setText("loading assets");
     loadingWidget.show();
 
-    // get current tab URL
-    var tabURL = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/1068768#osu/2237466" };
-    if (!tabURL) return;
-    tabURL = tabURL.url;
+    if (!isDebug) {
+        // get current tab URL
+        var tabURL = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/1068768#osu/2237466" };
+        if (!tabURL) throw new Error();
+        tabURL = tabURL.url;
 
-    // match URL with regex
-    const matches = tabURL.match(/^https:\/\/osu.ppy.sh\/beatmapsets\/(\d+)(#[a-z]+)\/(\d+)$/);
-    if (!matches || !matches.length) {
-        loadingWidget.error("not supported on this website");
-        return;
-    }
-    
-    if (matches[2] !== "#osu") {
-        loadingWidget.error("unsupported gamemode");
-        return;
-    }
-    
-    const [ beatmapSetID, beatmapID ] = [ matches[1].toString(), matches[3] ];
-    // try and get downloaded map from storage; if not found, fetch it
-    const storedMap = (await chrome.storage.local.get("b-"+beatmapSetID))["b-"+beatmapSetID];
-    if (!storedMap) {
-        console.log("Beatmap not found in local storage; downloading it");
-        loadingWidget.setText("downloading beatmap");
-        oszBlob = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
-
-        loadingWidget.setText("loading assets");
-        loadingWidget.clearValue();
-        const uint8arr = new Uint8Array(await oszBlob.arrayBuffer());
-        const buffer = new Array(oszBlob.size);
-        for (let i = 0; i < oszBlob.size; i++) {
-            buffer[i] = String.fromCharCode(uint8arr[i]);
+        // match URL with regex
+        const matches = tabURL.match(/^https:\/\/osu.ppy.sh\/beatmapsets\/(\d+)(#[a-z]+)\/(\d+)$/);
+        if (!matches || !matches.length) {
+            loadingWidget.error("not supported on this website");
+            return;
         }
 
-        // save mapset and current time
-        await chrome.storage.local.set({
-            ["b-" + beatmapSetID]: buffer.join(""),             // b for beatmapSet
-            ["t-" + beatmapSetID]: new Date().toISOString()     // t for time
-        });
+        if (matches[2] !== "#osu") {
+            loadingWidget.error("unsupported gamemode");
+            return;
+        }
+
+        [beatmapSetID, beatmapID] = [matches[1].toString(), matches[3]];
+        // try and get downloaded map from storage; if not found, fetch it
+        const storedMap = (await chrome.storage.local.get("b-" + beatmapSetID))["b-" + beatmapSetID];
+        if (!storedMap) {
+            console.log("Beatmap not found in local storage; downloading it");
+            loadingWidget.setText("downloading beatmap");
+            oszBlob = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
+
+            loadingWidget.setText("loading assets");
+            loadingWidget.clearValue();
+            const uint8arr = new Uint8Array(await oszBlob.arrayBuffer());
+            const buffer = new Array(oszBlob.size);
+            for (let i = 0; i < oszBlob.size; i++) {
+                buffer[i] = String.fromCharCode(uint8arr[i]);
+            }
+
+            // save mapset and current time
+            await chrome.storage.local.set({
+                ["b-" + beatmapSetID]: buffer.join(""),             // b for beatmapSet
+                ["t-" + beatmapSetID]: new Date().toISOString()     // t for time
+            });
+        }
+        else {
+            console.log("Beatmap found in local storage");
+            // decode stored map
+            const buffer = new Uint8Array(storedMap.length);
+            for (let i = 0; i < storedMap.length; i++) {
+                buffer[i] = storedMap.charCodeAt(i);
+            }
+            oszBlob = new Blob([buffer.buffer]).slice(0, buffer.length, "application/x-osu-beatmap-archive");
+        }
+
+        clearOldMaps();
+
+        // try and load user skin; if not found, load empty zip (uses default skin)
+        const userSkin = (await chrome.storage.local.get("skin")).skin;
+        let skinBuffer;
+        if (!userSkin) {
+            // bytes for empty zip
+            skinBuffer = new Uint8Array([80, 75, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            const buffer = new Array(skinBuffer.length);
+            for (let i = 0; i < skinBuffer.length; i++) {
+                buffer[i] = String.fromCharCode(skinBuffer[i]);
+            }
+            chrome.storage.local.set({ skin: buffer.join("") });
+        }
+        else {
+            skinBuffer = new Uint8Array(userSkin.length);
+            for (let i = 0; i < userSkin.length; i++) {
+                skinBuffer[i] = userSkin.charCodeAt(i);
+            }
+        }
+        skinBlob = new Blob([skinBuffer.buffer]).slice(0, skinBuffer.length, "application/x-osu-skin-archive");
+
+        skinName = (await chrome.storage.local.get("skinName")).skinName ?? "Default skin";
+        $("#skin-name").innerHTML = skinName;
+
     }
     else {
-        console.log("Beatmap found in local storage");
-        // decode stored map
-        const buffer = new Uint8Array(storedMap.length);
-        for (let i = 0; i < storedMap.length; i++) {
-            buffer[i] = storedMap.charCodeAt(i);
-        }
-        oszBlob = new Blob([buffer.buffer]).slice(0, buffer.length, "application/x-osu-beatmap-archive");
+        try { await fetch("http://localhost:8000/cgi-bin/zipper.py") } catch { }
+        oszBlob = await fetch("map.zip").then(r => r.blob());
+        skinBlob = await fetch("skin.zip").then(r => r.blob());
+        [beatmapSetID, beatmapID] = ["3963421", "1919786"];
     }
-    
-    clearOldMaps();
-
-    // try and load user skin; if not found, load empty zip (uses default skin)
-    const userSkin = (await chrome.storage.local.get("skin")).skin;
-    let skinBuffer;
-    if (!userSkin) {
-        // bytes for empty zip
-        skinBuffer = new Uint8Array([80, 75, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        const buffer = new Array(skinBuffer.length);
-        for (let i = 0; i < skinBuffer.length; i++) {
-            buffer[i] = String.fromCharCode(skinBuffer[i]);
-        }
-        chrome.storage.local.set({ skin: buffer.join("") });
-    }
-    else {
-        skinBuffer = new Uint8Array(userSkin.length);
-        for (let i = 0; i < userSkin.length; i++) {
-            skinBuffer[i] = userSkin.charCodeAt(i);
-        }
-    }
-    skinBlob = new Blob([skinBuffer.buffer]).slice(0, skinBuffer.length, "application/x-osu-skin-archive");
-    
-    skinName = (await chrome.storage.local.get("skinName")).skinName ?? "Default skin";
-    $("#skin-name").innerHTML = skinName;
 
     readOptions();
 
@@ -170,25 +182,27 @@ const downloadMapset = async (url) => {
 }
 
 const clearOldMaps = async () => {
-    const allStorage = await chrome.storage.local.get(null);
+    if (!isDebug) {
+        const allStorage = await chrome.storage.local.get(null);
 
-    for (let key of Object.keys(allStorage)) {
-        // if this key is a mapset
-        if (key.startsWith("b-")) {
-            // get time
-            const cachedTime = allStorage["t-" + key.substring(2)] ?? "0";
-            
-            // if cached map older than 1 hour, remove
-            const maxTimeDiff = 1 * 1000 * 60 * 60;
-            if (new Date() - maxTimeDiff > new Date(cachedTime)) {
-                chrome.storage.local.remove([ key, "t-" + key.substring(2) ]);
+        for (let key of Object.keys(allStorage)) {
+            // if this key is a mapset
+            if (key.startsWith("b-")) {
+                // get time
+                const cachedTime = allStorage["t-" + key.substring(2)] ?? "0";
+
+                // if cached map older than 1 hour, remove
+                const maxTimeDiff = 1 * 1000 * 60 * 60;
+                if (new Date() - maxTimeDiff > new Date(cachedTime)) {
+                    chrome.storage.local.remove([key, "t-" + key.substring(2)]);
+                }
             }
         }
     }
 }
 
 // ------ INPUT ------
-window.addEventListener("keydown", e => {console.log(e)
+window.addEventListener("keydown", e => {
     if (state !== "ready") return;
 
     switch (e.code) {
@@ -432,16 +446,18 @@ const toggleMod = (mod) => {
 }
 
 const readOptions = async () => {
-    const savedOptions = (await chrome.storage.local.get("options")).options;
-    if (!savedOptions) {
-        chrome.storage.local.set({ options: options });
-    }
-    else {
-        Object.keys(options).forEach(key => {
-            if (savedOptions[key] !== undefined) {
-                options[key] = savedOptions[key];
-            }
-        })
+    if (!isDebug) {
+        const savedOptions = (await chrome.storage.local.get("options")).options;
+        if (!savedOptions) {
+            chrome.storage.local.set({ options: options });
+        }
+        else {
+            Object.keys(options).forEach(key => {
+                if (savedOptions[key] !== undefined) {
+                    options[key] = savedOptions[key];
+                }
+            })
+        }
     }
 
     volumes.general[0] = options.VolumeGeneral;
@@ -458,5 +474,5 @@ const readOptions = async () => {
 }
 
 export const saveOptions = () => {
-    chrome.storage.local.set({ options: options });
+    if (!isDebug) chrome.storage.local.set({ options: options });
 }

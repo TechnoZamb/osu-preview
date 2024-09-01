@@ -1,4 +1,4 @@
-import { options, musicPlayer } from "/popup.js";
+import { options, musicPlayer, isDebug } from "/popup.js";
 import { HitObject } from "/osu/HitObject.js";
 import { parseSkin, loadHitsounds, loadSkin, asyncLoadImage } from "/osu/skin.js";
 import { getFollowPosition, getSliderTicks } from "/osu/slider.js";
@@ -6,7 +6,7 @@ import * as render from "/osu/render.js";
 import { MusicPlayer } from "/player.js";
 import { volumes } from "/volumes.js";
 import { clamp, distance, extractFile, $ } from "/functions.js";
-const { BlobWriter } = zip;
+const { BlobWriter, TextWriter } = zip;
 
 
 export let beatmap, skin, hitSounds;
@@ -26,8 +26,11 @@ export async function initOsu(mapsetBlob, skinBlob, beatmapID) {
     skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
     // parse beatmap
-    const beatmapText = await getDifficultyText(beatmapID);
-    //const beatmapText = await mapsetFiles[diff].getData(new TextWriter());
+    let beatmapText;
+    if (!isDebug)
+        beatmapText = await getDifficultyText(beatmapID);
+    else
+        beatmapText = await Object.values(mapsetFiles).find(x => x.filename.endsWith(".osu")).getData(new TextWriter());
     beatmap = parseBeatmap(beatmapText);
 
     computeMapProperties();

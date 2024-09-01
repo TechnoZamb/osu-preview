@@ -29,8 +29,10 @@ export const show = () => {
 
     let fakeTime = 0;
     triangleList = Array.from(Array(300)).map(generator);
-    triangleList.forEach(x => x.startTime = fakeTime += getRandomTimeout());
-    triangleList.forEach(x => x.y -= x.speed * x.startTime);
+    triangleList.forEach(x => {
+        x.startTime = fakeTime += getRandomTimeout();
+        x.y -= x.speed * x.startTime;
+    });
     lastTime = performance.now();
     stopLoading = false;
     shown = true;

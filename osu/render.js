@@ -858,7 +858,6 @@ const adjustSliderGradientDivisions = () => {
                 $("#fps").innerHTML = Math.round(1000 / deltaT);
             }
         }
-        console.log(sliderGradientDivisions)
         prevTime += deltaT;*/
 
     // adjust slider gradient divison number (n.1 performance killer) to boost fps
