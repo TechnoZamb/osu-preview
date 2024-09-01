@@ -1,0 +1,15 @@
+{
+    "osuPath": "path to your osu installation",
+
+    "maps": [
+        [ "beatmap folder name", "beatmap diff name" ],
+        [ "beatmap folder name", "beatmap diff name" ]
+    ],
+    "mapIndex": "index of chosen map from 'maps' entry in json",
+
+    "skins": [
+        "skin folder name",
+        "skin folder name"
+    ],
+    "skinIndex": "index of chosen skin from 'skins' entry in json"
+}
