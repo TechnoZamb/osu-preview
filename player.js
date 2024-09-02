@@ -37,23 +37,20 @@ export class MusicPlayer {
         gainNode.connect(volumes.general[1]);
         volumes.music[1] = gainNode;
 
-        // load song
+        // decode song
         const buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
-        const [ forwards, backwards ] = WAVBuilder.build(buffer);
+        const wavBlob = WAVBuilder.build(buffer);
         
-        // wait for audio elements to be ready
-        let callback1, callback2;
-        const promises = [ new Promise(r => callback1 = r), new Promise(r => callback2 = r) ];
-        player.forwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(forwards), oncanplaythrough: callback1 });
-        player.backwards = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(forwards), oncanplaythrough: callback2 });
-        await Promise.all(promises);
+        // wait for audio elements to load song
+        let callback;
+        const promise = new Promise(r => callback = r);
+        player.audio = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(wavBlob), oncanplaythrough: callback });
+        await Promise.all([promise]);
 
-        const f = player.audioContext.createMediaElementSource(player.forwards);
-        const b = player.audioContext.createMediaElementSource(player.backwards);
-        f.connect(volumes.music[1]);
-        b.connect(volumes.music[1]);
+        // connect audio element to audio nodes
+        player.audioContext.createMediaElementSource(player.audio).connect(volumes.music[1]);
         
-        player.duration = player.forwards.duration;
+        player.duration = player.audio.duration;
         player.playbackRate = 1;
 
         player.playEvent = new Event("play");
@@ -63,70 +60,42 @@ export class MusicPlayer {
     }
 
     play() {
-        if (this.playbackRate >= 0) {
-            this.forwards.play();
-        }
-        else {
-            this.backwards.play();
-        }
         this.currentTime = this.currentTime;
-        this.audioContext.resume();
-        
         if (this.onPlay) this.onPlay();
+        this.audio.play();
+        this.audioContext.resume();
     }
 
     pause() {
-        this.audioContext.suspend();
-        this.forwards.pause();
-        this.backwards.pause();
-
+        this.currentTime = this.currentTime;
         if (this.onPause) this.onPause();
+        this.audio.pause();
+        this.audioContext.suspend();
+    }
+
+    softPlay() {
+        this.audio.play();
+        this.currentTime = this.currentTime;
     }
 
     changePlaybackRate(value) {
-        if (value > 0) {
-            value = clamp(0.063, value, 16);
-            this.forwards.playbackRate = value;
-            if (!this.backwards.paused) {
-                this.backwards.pause();
-                this.forwards.currentTime = this.duration - this.backwards.currentTime;
-                this.forwards.play();
-            }
+        if (value != 0) {
+            value = clamp(0.5, Math.abs(value), 16);
         }
-        else if (value < 0) {
-            if (value > -0.063) value = -0.063;
-            if (value < -16) value = -16;
-            this.backwards.playbackRate = -value;
-            if (!this.forwards.paused) {
-                this.forwards.pause();
-                this.backwards.currentTime = this.duration - this.forwards.currentTime;
-                this.backwards.play();
-            }
-        }
-        else {
-            this.audioContext.suspend();
-            if (!this.forwards.paused)
-                this.forwards.playbackRate = 0;
-            else
-                this.backwards.playbackRate = 0;
-        }
+        this.audio.playbackRate = value;
         this.playbackRate = value;
     }
 
     get paused() {
-        return this.forwards.paused && this.forwards.paused;
+        return this.audio.paused;
     }
 
     get currentTime() {
-        if (this.playbackRate >= 0)
-            return this.forwards.currentTime;
-        else
-            return this.duration - this.backwards.currentTime;
+        return this.audio.currentTime;
     }
 
     set currentTime(value) {
-        this.forwards.currentTime = value;
-        this.backwards.currentTime = this.duration - value;
+        this.audio.currentTime = value;
     }
 }
 
@@ -138,13 +107,10 @@ class WAVBuilder {
 
         // interleaved
         const length = Math.min(left.length, right.length);
-        const interleaved1 = new Float32Array(length * 2);
-        const interleaved2 = new Float32Array(length * 2);
+        const interleaved = new Float32Array(length * 2);
         for (let src = 0, dst = 0; src < length; src++, dst += 2) {
-            interleaved1[dst] = left[src];
-            interleaved1[dst + 1] = right[src];
-            interleaved2[dst] = left[length - src - 1];
-            interleaved2[dst + 1] = right[length - src - 1];
+            interleaved[dst] = left[src];
+            interleaved[dst + 1] = right[src];
         }
 
         // get WAV file bytes and audio params of your audio source
@@ -153,10 +119,9 @@ class WAVBuilder {
             numChannels: 2,
             sampleRate: 48000,
         };
-        const wavBytes1 = WAVBuilder.getWavBytes(interleaved1.buffer, options);
-        const wavBytes2 = WAVBuilder.getWavBytes(interleaved2.buffer, options);
+        const wavBytes = WAVBuilder.getWavBytes(interleaved.buffer, options);
 
-        return [ new Blob([wavBytes1], { type: 'audio/wav' }), new Blob([wavBytes2], { type: 'audio/wav' }) ];
+        return new Blob([wavBytes], { type: 'audio/wav' });
     }
 
     // Returns Uint8Array of WAV bytes

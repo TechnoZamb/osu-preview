@@ -1,5 +1,5 @@
 import { beatmap, skin, breaks, activeMods } from "/osu/osu.js";
-import { options } from "/index.js";
+import { options } from "/popup.js";
 import { mod, clamp, lerp, range, rgb, distance, $ } from "/functions.js";
 import { strokeSlider, getFollowPosition, getSliderTicks } from "/osu/slider.js";
 
@@ -858,7 +858,6 @@ const adjustSliderGradientDivisions = () => {
                 $("#fps").innerHTML = Math.round(1000 / deltaT);
             }
         }
-        console.log(sliderGradientDivisions)
         prevTime += deltaT;*/
 
     // adjust slider gradient divison number (n.1 performance killer) to boost fps

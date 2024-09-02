@@ -1,4 +1,4 @@
-import { options, musicPlayer } from "/index.js";
+import { options, musicPlayer, isDebug } from "/popup.js";
 import { HitObject } from "/osu/HitObject.js";
 import { parseSkin, loadHitsounds, loadSkin, asyncLoadImage } from "/osu/skin.js";
 import { getFollowPosition, getSliderTicks } from "/osu/slider.js";
@@ -18,26 +18,19 @@ let queuedHitsounds = [], queuedSpinnerSpins = [];
 const gainNodes = [];
 let precalculatedTrailPoints = false;
 
-// debug
-const diff = [
-    "Hatsune Miku - Yellow (Krisom) [Insane].osu",
-    "MIMI vs. Leah Kate - 10 Things I Hate About Ai no Sukima (Log Off Now) [sasa].osu",
-    "Nanamori-chu  Goraku-bu - Happy Time wa Owaranai (eiri-) [Sotarks' Peace of Mind].osu"
-][1];
 
-
-export async function initOsu(mapsetURL, skinURL) {
+export async function initOsu(mapsetBlob, skinBlob, beatmapID) {
 
     // extract mapset and skin files
-    const mapsetBlob = await fetch(mapsetURL).then(r => r.blob());
     mapsetFiles = (await extractFile(mapsetBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
-
-    const skinBlob = await fetch(skinURL).then(r => r.blob());
     skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
 
     // parse beatmap
-    //const beatmapText = await getDifficulty(mapsetFiles, "0");
-    const beatmapText = await mapsetFiles[diff].getData(new TextWriter());
+    let beatmapText;
+    if (!isDebug)
+        beatmapText = await getDifficultyText(beatmapID);
+    else
+        beatmapText = await Object.values(mapsetFiles).find(x => x.filename.endsWith(".osu")).getData(new TextWriter());
     beatmap = parseBeatmap(beatmapText);
 
     computeMapProperties();
@@ -68,13 +61,14 @@ export async function initOsu(mapsetURL, skinURL) {
     return player;
 }
 
-export async function reloadSkin(skinURL) {
+export async function reloadSkin(skinBlob) {
     if (!mapsetFiles || !beatmap) {
         return;
     }
 
-    const skinBlob = await fetch(skinURL).then(r => r.blob());
-    skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    if (skinBlob) {
+        skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
+    }
     skin = await loadSkin(skinFiles, mapsetFiles, beatmap, options.BeatmapSkin);
 
     if (skin.isLongerCursorTrail && !precalculatedTrailPoints) {
@@ -233,18 +227,8 @@ const parseBeatmap = (text) => {
     return result;
 }
 
-const getDifficultyText = async (entries, beatmapID) => {
-    for (let diff in entries) {
-        if (diff.endsWith(".osu")) {
-            const text = await entries[diff].getData(new TextWriter());
-
-            // get BeatmapID
-            const id = text.match(/(?<=BeatmapID:)\d+/);
-            if (id == beatmapID) {
-                return text;
-            }
-        }
-    }
+const getDifficultyText = async (beatmapID) => {
+    return await fetch("https://osu.ppy.sh/osu/" + beatmapID).then(res => res.text());
 }
 
 const getBackgroundPictureBlob = async (entries, beatmap) => {
@@ -415,21 +399,12 @@ const computeBreaks = (player) => {
 
 export const queueHitsounds = (timeFrom) => {
     const playbackRate = musicPlayer.playbackRate;
-
     const audioOffset = 0.06;
-
     timeFrom *= 1000;
 
-    // stop all hitsounds from playing
-    for (let i = 0; i < queuedHitsounds.length; i++) {
-        queuedHitsounds[i].stop(0);
-    }
-
-    queuedHitsounds = [];
-    queuedSpinnerSpins = [];
+    stopQueuedHitsounds();
 
     let source;
-
     for (let obj of beatmap.HitObjects) {
         if (obj.time + (obj.isSlider ? obj.duration * obj.slides : obj.isSpinner ? obj.endTime - obj.time : 0) <= timeFrom) {
             continue;
@@ -542,6 +517,16 @@ export const queueHitsounds = (timeFrom) => {
     }
 }
 
+export const stopQueuedHitsounds = () => {
+    // stop all hitsounds from playing
+    for (let i = 0; i < queuedHitsounds.length; i++) {
+        queuedHitsounds[i].stop(0);
+    }
+
+    queuedHitsounds = [];
+    queuedSpinnerSpins = [];
+}
+
 export const adjustSpinnerSpinPlaybackRate = (time) => {
     const currSpinner = queuedSpinnerSpins.find(x => x[0] <= time && time < x[1]);
     if (currSpinner) {
@@ -600,3 +585,5 @@ export const toggleMod = (mod) => {
         }
     }
 }
+
+export const getPlaySpeed = () => activeMods.has("dt") ? 1.5 : activeMods.has("ht") ? 0.75 : 1;
