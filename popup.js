@@ -122,7 +122,6 @@ window.addEventListener("load", async (e) => {
         try { await fetch("http://localhost:8000/cgi-bin/zipper.py") } catch { }
         oszBlob = await fetch("map.zip").then(r => r.blob());
         skinBlob = await fetch("skin.zip").then(r => r.blob());
-        [beatmapSetID, beatmapID] = ["3963421", "1919786"];
     }
 
     readOptions();
@@ -143,17 +142,18 @@ window.addEventListener("load", async (e) => {
         });
     }
 
-    volumes.general[1].gain.value = 0;
-    musicPlayer.play();
-    await sleep(100);
-    volumes.general[1].gain.value = volumes.general[0];
-    musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
-    musicPlayer.play();
-
     // finished loading
     state = "ready";
     loadingWidget.hide();
 
+    // bullshit that i HAVE to do in order to not have desynced hitsounds at first
+    await sleep(100);
+    musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
+    volumes.general[1].gain.value = 0;
+    musicPlayer.play();
+    await sleep(100);
+    volumes.general[1].gain.value = volumes.general[0];
+    musicPlayer.play();
 });
 
 function frame(time) {
@@ -224,12 +224,12 @@ window.addEventListener("keydown", e => {
             break;
         }
         case "ArrowLeft": {
-            musicPlayer.currentTime -= 2;
+            musicPlayer.currentTime -= 3;
             if (!musicPlayer.paused) musicPlayer.play();
             break;
         }
         case "ArrowRight": {
-            musicPlayer.currentTime += 2;
+            musicPlayer.currentTime += 3;
             if (!musicPlayer.paused) musicPlayer.play();
             break;
         }

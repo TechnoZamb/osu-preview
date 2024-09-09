@@ -41,26 +41,23 @@ export class MusicPlayer {
         const buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
         const wavBlob = WAVBuilder.build(buffer);
         
-        // wait for audio elements to load song
+        // wait for audio element to load song
         let callback;
         const promise = new Promise(r => callback = r);
         player.audio = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(wavBlob), oncanplaythrough: callback });
         await Promise.all([promise]);
 
-        // connect audio element to audio nodes
+        // connect audio element to audio node
         player.audioContext.createMediaElementSource(player.audio).connect(volumes.music[1]);
         
         player.duration = player.audio.duration;
         player.playbackRate = 1;
 
-        player.playEvent = new Event("play");
-        player.pauseEvent = new Event("pause");
-
         return player;
     }
 
     play() {
-        this.currentTime = this.currentTime;
+        this.currentTime = this.currentTime >= this.duration ? 0 : this.currentTime;
         if (this.onPlay) this.onPlay();
         this.audio.play();
         this.audioContext.resume();
