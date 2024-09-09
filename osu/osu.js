@@ -29,8 +29,10 @@ export async function initOsu(mapsetBlob, skinBlob, beatmapID) {
     let beatmapText;
     if (!isDebug)
         beatmapText = await getDifficultyText(beatmapID);
-    else
-        beatmapText = await Object.values(mapsetFiles).find(x => x.filename.endsWith(".osu")).getData(new TextWriter());
+    else {
+        let json = await fetch("debug.json").then(r => r.json());
+        beatmapText = await Object.values(mapsetFiles).find(x => x.filename.endsWith(json.maps[json.mapIndex][1] + ".osu")).getData(new TextWriter());
+    }
     beatmap = parseBeatmap(beatmapText);
 
     computeMapProperties();
@@ -424,8 +426,11 @@ export const queueHitsounds = (timeFrom) => {
                 source = musicPlayer.audioContext.createBufferSource();
                 source.buffer = hitSounds[sound];
                 source.connect(gainNode);
-                source.start(Math.max(time / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset, 0));
-                queuedHitsounds.push(source);
+                const startTime = Math.max(time / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset, 0);
+                if (startTime > 0) {
+                    source.start(startTime);
+                    queuedHitsounds.push(source);
+                }
             }
         };
         const composeSound = (set, sound, index, time) => {
@@ -453,7 +458,8 @@ export const queueHitsounds = (timeFrom) => {
             playSound(soundName, 0, true);
             if (source != null) {
                 source.loop = true;
-                source.stop((obj.time - timeFrom + obj.duration * obj.slides) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset);
+                const stopTime = (obj.time - timeFrom + obj.duration * obj.slides) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset;
+                if (stopTime > 0) source.stop(stopTime);
             }
 
             // slider ticks
@@ -489,10 +495,14 @@ export const queueHitsounds = (timeFrom) => {
             source.buffer = hitSounds["spinnerspin"];
             source.loop = true;
             source.connect(volumes.effects[1]);  // spinnerspin is always as 100% volume
-            source.start((obj.time - timeFrom) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
-            source.stop((obj.endTime - timeFrom) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset);
-            queuedHitsounds.push(source);
-            queuedSpinnerSpins.push([obj.time, obj.endTime, obj, source]);
+            const startTime = (obj.time - timeFrom) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset;
+            if (startTime > 0) {
+                source.start(startTime, Math.max((timeFrom - obj.time) / 1000 % source.buffer.duration, 0));
+                const stopTime = (obj.endTime - timeFrom) / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset;
+                if (stopTime > 0) source.stop(stopTime);
+                queuedHitsounds.push(source);
+                queuedSpinnerSpins.push([obj.time, obj.endTime, obj, source]);
+            }
 
             // spinner bonus
             for (let i = obj.duration / 1.95; i < obj.duration; i += 140/*125*/) {

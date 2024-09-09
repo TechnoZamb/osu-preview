@@ -16,7 +16,7 @@ document.addEventListener("wheel", e => {
     const now = performance.now();
     lastScrolls.push(now);
 
-    lastScrolls = lastScrolls.filter(x => now - x < 400);
+    lastScrolls = lastScrolls.filter(x => now - x < 300);
     const val = e.deltaY / 10000 * lastScrolls.length;
 
     volumeControl.setAttribute("shown", "");
