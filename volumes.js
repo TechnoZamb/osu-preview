@@ -1,4 +1,4 @@
-import { options, saveOptions } from "/popup.js";
+import { options, saveOptions, state } from "/popup.js";
 import { clamp } from "/functions.js";
 
 const volumeControl = document.querySelector("#volume-control");
@@ -13,6 +13,8 @@ export const volumes = {
 
 
 document.addEventListener("wheel", e => {
+    if (state !== "ready") return;
+    
     const now = performance.now();
     lastScrolls.push(now);
 

@@ -6,9 +6,6 @@ import { volumes, updateSliders } from "/volumes.js";
 import { $, sleep } from "./functions.js";
 
 
-var progressBar;
-
-
 export let options = {
     BeatmapSkin: false,
     BeatmapHitsounds: false,
@@ -20,12 +17,15 @@ export let options = {
 };
 
 export let musicPlayer;
+let progressBar;
 export let state = "loading";
 let moreTabOpen = false;
 
 let beatmapSetID, beatmapID;
 let oszBlob, oszFilename;
 let skinBlob, skinName;
+
+let tab;
 
 export const isDebug = !(chrome && chrome.tabs && chrome.storage);
 
@@ -44,9 +44,9 @@ window.addEventListener("load", async (e) => {
 
     if (!isDebug) {
         // get current tab URL
-        var tabURL = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/1068768#osu/2237466" };
-        if (!tabURL) throw new Error();
-        tabURL = tabURL.url;
+        tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/773330#osu/1626537", id: 0 };
+        if (!tab) throw new Error();
+        let tabURL = tab.url;
 
         // match URL with regex
         const matches = tabURL.match(/^https:\/\/osu.ppy.sh\/beatmapsets\/(\d+)(#[a-z]+)\/(\d+)$/);
@@ -66,7 +66,16 @@ window.addEventListener("load", async (e) => {
         if (!storedMap) {
             console.log("Beatmap not found in local storage; downloading it");
             loadingWidget.setText("downloading beatmap");
-            oszBlob = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
+
+            const downloadResult = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
+            if (typeof downloadResult === "string") {
+                loadingWidget.clearValue();
+                loadingWidget.error(downloadResult);
+                return;
+            }
+            else {
+                oszBlob = downloadResult;
+            }
 
             loadingWidget.setText("loading assets");
             loadingWidget.clearValue();
@@ -164,21 +173,29 @@ function frame(time) {
 }
 
 const downloadMapset = async (url) => {
-    let blob, callback;
+    let result, callback;
     const promise = new Promise(r => callback = r);
     const xmlHTTP = new XMLHttpRequest();
     xmlHTTP.open("GET", url, true);
     xmlHTTP.responseType = "arraybuffer";
-    xmlHTTP.onload = function (e) {
-        blob = new Blob([this.response]).slice(0, this.response.byteLength, "application/x-osu-beatmap-archive");
+    xmlHTTP.onload = function(e) {
+        if (e.target.status == 401) {
+            result = "you need to be logged in to allow this extension to download beatmaps.";
+        }
+        else if (e.target.status == 200) {
+            result = new Blob([this.response]).slice(0, this.response.byteLength, "application/x-osu-beatmap-archive");
+        }
+        else {
+            result = "an error occured.";
+        }
         callback();
     };
-    xmlHTTP.onprogress = function (pr) {
+    xmlHTTP.onprogress = function(pr) {
         loadingWidget.setValue(pr.loaded / pr.total);
     };
     xmlHTTP.send();
     await Promise.allSettled([promise]);
-    return blob;
+    return result;
 }
 
 const clearOldMaps = async () => {

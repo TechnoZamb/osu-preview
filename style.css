@@ -33,7 +33,7 @@ main {
 }
 canvas {
     display: block;
-    background: green;
+    background: url('assets/background.jpg');
 }
 #progress-bar-wrapper {
     position: absolute;

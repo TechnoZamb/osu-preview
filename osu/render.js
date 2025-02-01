@@ -48,13 +48,16 @@ export async function init() {
     osuCoords2PixelsY = (val) => (activeMods.has("hr") ? 384 - val : val) / 512 * fieldSize[0];
 
     const bg = beatmap.backgroundPicture;
-    if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
-        bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
+    if (bg) {
+        if (canvasSize[0] / canvasSize[1] > bg.width / bg.height) {
+            bgSize = [canvasSize[0], bg.height * canvasSize[0] / bg.width];
+        }
+        else {
+            bgSize = [bg.width * canvasSize[1] / bg.height, canvasSize[1]];
+        }
+        bgSize = [...bgSize, (canvasSize[1] - bgSize[1]) / 2, (canvasSize[0] - bgSize[0]) / 2];
     }
-    else {
-        bgSize = [bg.width * canvasSize[1] / bg.height, canvasSize[1]];
-    }
-    bgSize = [...bgSize, (canvasSize[1] - bgSize[1]) / 2, (canvasSize[0] - bgSize[0]) / 2];
+
     bezierSegmentMaxLengthSqrd = fieldSize[0] > fieldSize[1] ?
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[0] * 512, 2) :
         Math.pow(BEZIER_SEGMENT_MAX_LENGTH / fieldSize[1] * 384, 2);
@@ -97,7 +100,9 @@ export function render(time) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // draw background
-    ctx.drawImage(beatmap.backgroundPicture, bgSize[3], bgSize[2], bgSize[0], bgSize[1]);
+    if (beatmap.backgroundPicture) {
+        ctx.drawImage(beatmap.backgroundPicture, bgSize[3], bgSize[2], bgSize[0], bgSize[1]);
+    }
  
     // dim background
     ctx.fillStyle = `rgb(0,0,0,${getBGDim(options.BackgroundDim, time)})`;
