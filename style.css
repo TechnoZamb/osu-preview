@@ -64,6 +64,20 @@ canvas {
     height: 20px;
 }
 
+#time-indicator {
+    position: absolute;
+    right: 14px;
+    bottom: 30px;
+    font-size: 24px;
+    font-style: italic;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+#progress-bar-wrapper:hover > #time-indicator, #progress-bar[hover] ~ #time-indicator {
+    opacity: 1 !important;
+}
+
 #volume-control {
     display: flex;
     position: absolute;
@@ -331,7 +345,7 @@ footer {
 }
 .blue {
     background: linear-gradient(to top, var(--blue-btn-bg1), var(--blue-btn-bg2));
-    transition: --blue-btn-bg1 0.07s, --blue-btn-bg2 0.08s;
+    transition: --blue-btn-bg1 0.07s, --blue-btn-bg2 0.07s;
 }
 .blue:active {
     --blue-btn-bg1: #1f3a6b;
@@ -349,7 +363,7 @@ footer {
 }
 .pink {
     background: linear-gradient(to top, var(--pink-btn-bg1), var(--pink-btn-bg2));
-    transition: --pink-btn-bg1 0.07s, --pink-btn-bg2 0.08s;
+    transition: --pink-btn-bg1 0.07s, --pink-btn-bg2 0.07s;
 }
 .pink:active {
     --pink-btn-bg1: #953050;

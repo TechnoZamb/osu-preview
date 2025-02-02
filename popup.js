@@ -16,6 +16,7 @@ export let options = {
     VolumeEffects: 1
 };
 
+const timeIndicator = $("#time-indicator");
 export let musicPlayer;
 let progressBar;
 export let state = "loading";
@@ -170,6 +171,12 @@ function frame(time) {
 
     osu.adjustSpinnerSpinPlaybackRate(time);
     render.render(time);
+    
+    // adjust time indicator
+    timeIndicator.innerHTML =
+        parseInt(musicPlayer.currentTime / 60) + ':' + parseInt(musicPlayer.currentTime % 60).toString().padStart(2, '0') +
+        ' / ' +
+        parseInt(musicPlayer.duration / 60) + ':' + parseInt(musicPlayer.duration % 60).toString().padStart(2, '0');
 }
 
 const downloadMapset = async (url) => {
@@ -462,12 +469,12 @@ const expandWidget = (src, filter) => {
 const toggleMod = (mod) => {
     osu.toggleMod(mod);
 
-    for (let mod of ["ez", "hr", "ht", "dt", "hd", "fl"]) {
-        if (osu.activeMods.has(mod)) {
-            $("#mod-" + mod + " > img").setAttribute("toggled", "");
+    for (let mod2 of ["ez", "hr", "ht", "dt", "hd", "fl"]) {
+        if (osu.activeMods.has(mod2)) {
+            $("#mod-" + mod2 + " > img").setAttribute("toggled", "");
         }
         else {
-            $("#mod-" + mod + " > img").removeAttribute("toggled");
+            $("#mod-" + mod2 + " > img").removeAttribute("toggled");
         }
     }
 }
