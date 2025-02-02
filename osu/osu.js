@@ -426,9 +426,9 @@ export const queueHitsounds = (timeFrom) => {
                 source = musicPlayer.audioContext.createBufferSource();
                 source.buffer = hitSounds[sound];
                 source.connect(gainNode);
-                const startTime = Math.max(time / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset, 0);
-                if (startTime > 0) {
-                    source.start(startTime);
+                const startTime = time / 1000 / playbackRate + musicPlayer.audioContext.getOutputTimestamp().contextTime + audioOffset;
+                if (force || startTime >= 0) {
+                    source.start(Math.max(startTime, 0));
                     queuedHitsounds.push(source);
                 }
             }

@@ -72,10 +72,22 @@
         </div>
     </main>
     <footer>
-        <div id="footer-title">
-            <span>osu! preview</span>
+        <div id="footer-left">
+            <a id="repo-link" href="https://github.com/TechnoZamb/osu-renderer">osu! preview</a>
+            <a id="author-link" href="https://osu.ppy.sh/users/12958169">@TechnoZamb</a>
         </div>
-        <div id="footer-buttons">
+        <div id="footer-right">
+            <button id="report-btn" class="btn-big blue">
+                <span>!</span>
+                <div>
+                    <div class="report-panel">
+                        <span style="font-weight: bold">Report a problem</span>
+                        <a href="https://github.com/TechnoZamb/osu-renderer/issues/new?template=Blank+issue">Open an issue</a>
+                        <a href="https://osu.ppy.sh/home/messages/users/12958169">DM me on osu!</a>
+                        <a onclick="navigator.clipboard.writeText('technozamb19@gmail.com');alert('Author\'s email copeid to the clipboard')">Write an email</a>
+                    </div>
+                </div>
+            </button>
             <button id="more-btn" class="btn-big blue">More...</button>
             <button id="download-btn" class="btn-big pink">Download</button>
         </div>
@@ -88,10 +100,6 @@
         <span id="loading-progress"></span>
     </div>
     <img id="flashlight" src="assets/flashlight.png" class="hidden">
-
-    <div class="hidden">
-        <button id="reset">reset</button>
-    </div>
 </body>
 
 </html>

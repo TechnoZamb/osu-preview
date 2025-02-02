@@ -34,6 +34,8 @@ main {
 canvas {
     display: block;
     background: url('assets/background.jpg');
+    background-size: cover;
+    background-position: center;
 }
 #progress-bar-wrapper {
     position: absolute;
@@ -298,13 +300,12 @@ footer {
     flex: 1;
     display: flex;
     align-items: center;
+    padding: 0 12px;
 }
-#footer-title {
-    margin-left: 10px;
-}
-#footer-buttons {
+#footer-right {
     margin-left: auto;
-    margin-right: 12px;
+    display: flex;
+    gap: 8px;
 }
 .btn-big {
     min-width: 160px;
@@ -318,14 +319,121 @@ footer {
     color: inherit;
     outline: none;
 }
+@property --blue-btn-bg1 {
+    syntax: '<color>';
+    initial-value: #22468b;
+    inherits: false;
+}
+@property --blue-btn-bg2 {
+    syntax: '<color>';
+    initial-value: #7287c3;
+    inherits: false;
+}
 .blue {
-    background: linear-gradient(to top, #22468b, #7287c3);
+    background: linear-gradient(to top, var(--blue-btn-bg1), var(--blue-btn-bg2));
+    transition: --blue-btn-bg1 0.07s, --blue-btn-bg2 0.08s;
+}
+.blue:active {
+    --blue-btn-bg1: #1f3a6b;
+    --blue-btn-bg2: #5368a1;
+}
+@property --pink-btn-bg1 {
+    syntax: '<color>';
+    initial-value: #c73f6b;
+    inherits: false;
+}
+@property --pink-btn-bg2 {
+    syntax: '<color>';
+    initial-value: #ff8dbd;
+    inherits: false;
 }
 .pink {
-    background: linear-gradient(to top, #c73f6b, #ff8dbd);
+    background: linear-gradient(to top, var(--pink-btn-bg1), var(--pink-btn-bg2));
+    transition: --pink-btn-bg1 0.07s, --pink-btn-bg2 0.08s;
 }
-#download-btn {
-    margin-left: 8px;
+.pink:active {
+    --pink-btn-bg1: #953050;
+    --pink-btn-bg2: #cd6892;
+}
+
+#more-btn[active] {
+    outline: 1px solid #acbcff;
+}
+#report-btn {
+    min-width: 38px;
+    position: relative;
+}
+#report-btn > span {
+    font-family: Arial, Helvetica, sans-serif;
+    pointer-events: none;
+}
+#report-btn > div {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+}
+#report-btn:active:has(.report-panel:active) {
+    --blue-btn-bg1: #22468b;
+    --blue-btn-bg2: #7287c3;
+}
+.report-panel {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    transform: translateX(-50%);
+    width: 240px;
+    background: #000000d9;
+    padding: 4px 0;
+    opacity: 0;
+    margin-bottom: 10px;
+    font-weight: normal;
+    pointer-events: none;
+    transition: margin-bottom 0.1s, opacity 0.1s;
+}
+.report-panel[visible] {
+    opacity: 1;
+    margin-bottom: 16px;
+    pointer-events: all;
+}
+.report-panel::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; 
+    height: 0; 
+    border: 14px solid transparent;
+    border-top: 16px solid #000000d9;
+}
+.report-panel > * {
+    display: block;
+    padding: 5px 0;
+    cursor: default;
+    color: white;
+    text-decoration: none;
+    transition: background 0.1s, color 0.1s;
+}
+.report-panel > a:hover {
+    background: #96e6ff;
+    color: black;
+    cursor: pointer;
+}
+
+#repo-link, #repo-link:visited {
+    color: white !important;
+    text-decoration: none !important;
+    font-size: 23px;
+}
+#repo-link:hover, #repo-link:visited:hover {
+    text-decoration: underline !important;
+}
+#author-link, #author-link:visited {
+    color: #9f9f9f !important;
+    text-decoration: none !important;
+}
+#author-link:hover, #author-link:visited:hover {
+    text-decoration: underline !important;
 }
 
 @property --loading-bg1 {

@@ -281,12 +281,7 @@ window.addEventListener("keydown", e => {
             break;
         }
         case "Tab": {
-            moreTabOpen = !moreTabOpen;
-            if (moreTabOpen)
-                $("#more-tab").setAttribute("shown", "");
-            else
-                $("#more-tab").removeAttribute("shown");
-            e.preventDefault();
+            toggleMoreTab(e);
             break;
         }
     }
@@ -296,6 +291,7 @@ window.addEventListener("keydown", e => {
         if (!musicPlayer.paused) musicPlayer.play();
     }
 });
+document.addEventListener("mouseup", e => document.activeElement.blur());
 
 $("canvas").addEventListener("click", e => {
     if (state != "ready") return;
@@ -310,14 +306,28 @@ $("canvas").addEventListener("click", e => {
     }
 });
 
-$("#more-btn").addEventListener("click", e => {
-    moreTabOpen = !moreTabOpen;
-    if (moreTabOpen)
-        $("#more-tab").setAttribute("shown", "");
-    else
-        $("#more-tab").removeAttribute("shown");
-    e.preventDefault();
+$("#report-btn").addEventListener("click", e => {
+    if (e.target != e.currentTarget) return;
+    e.currentTarget.querySelector(".report-panel").toggleAttribute("visible");
 });
+window.addEventListener("mousedown", e => {
+    if (!e.target.closest("#report-btn")) $(".report-panel").removeAttribute("visible")
+});
+
+const toggleMoreTab = (e) => {
+    moreTabOpen = !moreTabOpen;
+    if (moreTabOpen) {
+        $("#more-tab").setAttribute("shown", "");
+        $("#more-btn").setAttribute("active", "");
+    }
+    else {
+        $("#more-tab").removeAttribute("shown");
+        $("#more-btn").removeAttribute("active");
+    }
+    e.preventDefault();
+    e.stopPropagation();
+}
+$("#more-btn").addEventListener("click", toggleMoreTab);
 $("#download-btn").addEventListener("click", e => {
     chrome.downloads.download({
         url: URL.createObjectURL(oszBlob),
