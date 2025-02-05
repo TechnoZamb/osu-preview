@@ -79,6 +79,11 @@ export async function reloadSkin(skinBlob) {
     }
 }
 
+export async function resetSkin() {
+    skinFiles = {};
+    await reloadSkin();
+}
+
 export async function reloadHitsounds() {
     if (!mapsetFiles || !skinFiles || !beatmap) {
         return;

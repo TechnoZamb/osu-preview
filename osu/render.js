@@ -16,7 +16,7 @@ let lastKiaiTime = -1, wasInKiai = false;
 let lastBreakTime = -1, wasInBreak;
 export let fieldSize = [], margins, bgSize;
 export let osuCoords2PixelsX, osuCoords2PixelsY;
-let prevTime = -1, framesN = 0, avgFPS, avgFrames = [];
+let prevTime = -1, framesN = 0, avgFPS, refreshRate = [];
 let sliderGradientDivisions = 20;
 const trailInterval = 16, longTrailStepLength = 3;
 const precomputedTrailPoints = [];
@@ -845,26 +845,6 @@ const getBGDim = (baseBgDim, time) => {
 }
 
 const adjustSliderGradientDivisions = () => {
-    /*const deltaT = performance.now() - prevTime;
-        if (prevTime != 0) {
-            if (avgTimes.length < 100) {
-                avgTimes.push(deltaT);
-                if (avgTimes.length == 100) {
-                    avgTime = avgTimes.reduce((x, y) => x + y, 0) / 100;
-                }
-            }
-            if (avgTime) {
-                if (sliderGradientDivisions < 20 && deltaT < avgTime - 0.1) {
-                    sliderGradientDivisions++;
-                }
-                if (sliderGradientDivisions > 2 && deltaT > avgTime + 1) {
-                    sliderGradientDivisions--;
-                }
-                $("#fps").innerHTML = Math.round(1000 / deltaT);
-            }
-        }
-        prevTime += deltaT;*/
-
     // adjust slider gradient divison number (n.1 performance killer) to boost fps
     framesN++;
     const now = performance.now();
@@ -873,10 +853,10 @@ const adjustSliderGradientDivisions = () => {
     }
     else {
         if (!avgFPS) {
-            avgFrames.push(now - prevTime);
+            refreshRate.push(now - prevTime);
             prevTime = now;
-            if (avgFrames.length > 99) {
-                avgFPS = 1000 / avgFrames.sort()[avgFrames.length / 2];
+            if (refreshRate.length > 99) {
+                avgFPS = 1000 / refreshRate.sort()[refreshRate.length / 2];
             }
         }
         else if (now - prevTime > 100) {

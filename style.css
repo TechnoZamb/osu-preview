@@ -271,10 +271,10 @@ canvas {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
 }
-#skin-btn {
-    display: block;
+#upload-skin-btn {
+    display: inline-block;
     width: fit-content;
     text-align: center;
 }
@@ -369,6 +369,24 @@ footer {
     --pink-btn-bg1: #953050;
     --pink-btn-bg2: #cd6892;
 }
+@property --red-btn-bg1 {
+    syntax: '<color>';
+    initial-value: #831515;
+    inherits: false;
+}
+@property --red-btn-bg2 {
+    syntax: '<color>';
+    initial-value: #fb4b4b;
+    inherits: false;
+}
+.red {
+    background: linear-gradient(to top, var(--red-btn-bg1), var(--red-btn-bg2));
+    transition: --red-btn-bg1 0.07s, --red-btn-bg2 0.07s;
+}
+.red:active {
+    --red-btn-bg1: #651212;
+    --red-btn-bg2: #b73d3d;
+}
 
 #more-btn[active] {
     outline: 1px solid #acbcff;
@@ -419,6 +437,8 @@ footer {
     height: 0; 
     border: 14px solid transparent;
     border-top: 16px solid #000000d9;
+    border-bottom: none;
+    cursor: default;
 }
 .report-panel > * {
     display: block;

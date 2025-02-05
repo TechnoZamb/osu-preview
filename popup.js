@@ -28,7 +28,7 @@ let skinBlob, skinName;
 
 let tab;
 
-export const isDebug = !(chrome && chrome.tabs && chrome.storage);
+export const isDebug = !(typeof chrome !== 'undefined' && chrome && chrome.tabs && chrome.storage);
 
 let error = false;
 ["error", "unhandledrejection"].forEach(x => window.addEventListener(x, async (e) => {
@@ -143,14 +143,7 @@ window.addEventListener("load", async (e) => {
 
     oszFilename = `${beatmapSetID} ${osu.beatmap.Metadata.Artist} - ${osu.beatmap.Metadata.Title}.osz`;
 
-    // create mod buttons
-    for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"], ["fl", "flashlight"]]) {
-        Object.assign($(`#mod-${x} > img`), {
-            src: osu.skin[`selection-mod-${y}`].src,
-            width: osu.skin[`selection-mod-${y}`].width * $("body").clientWidth / 800 * 1.5,
-            onclick: (e) => toggleMod(x)
-        });
-    }
+    reloadModButtons();
 
     // finished loading
     state = "ready";
@@ -411,7 +404,7 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
     val ? e.target.setAttribute("toggled", "") : e.target.removeAttribute("toggled");
     saveOptions();
 }));
-$("#skin-btn").addEventListener("input", async e => {
+$("#upload-skin-btn").addEventListener("input", async e => {
     if (e.target.files.length) {
         const file = e.target.files[0];
         await osu.reloadSkin(file);
@@ -434,14 +427,19 @@ $("#skin-btn").addEventListener("input", async e => {
         chrome.storage.local.set({ skinName: skinName });
         $("#skin-name").innerHTML = skinName;
 
-        // reload mod buttons
-        for (let [x, y] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"], ["fl", "flashlight"]]) {
-            Object.assign($(`#mod-${x} > img`), {
-                src: osu.skin[`selection-mod-${y}`].src,
-                width: osu.skin[`selection-mod-${y}`].width * $("body").clientWidth / 800 * 1.5,
-            });
-        }
+        reloadModButtons();
     }
+});
+$("#reset-skin-btn").addEventListener("click", async e => {
+    await osu.resetSkin();
+    await osu.reloadHitsounds();
+    if (!musicPlayer.paused) musicPlayer.play();
+
+    chrome.storage.local.remove("skin");
+    chrome.storage.local.remove("skinName");
+    skinName = $("#skin-name").innerHTML = "Default skin";
+
+    reloadModButtons();
 });
 
 
@@ -476,6 +474,16 @@ const toggleMod = (mod) => {
         else {
             $("#mod-" + mod2 + " > img").removeAttribute("toggled");
         }
+    }
+}
+
+const reloadModButtons = () => {
+    for (let [short, long] of [["ez", "easy"], ["ht", "halftime"], ["hr", "hardrock"], ["dt", "doubletime"], ["hd", "hidden"], ["fl", "flashlight"]]) {
+        Object.assign($(`#mod-${short} > img`), {
+            src: osu.skin[`selection-mod-${long}`].src,
+            width: osu.skin[`selection-mod-${long}`].width * $("body").clientWidth / 800 * 1.5,
+            onclick: (e) => toggleMod(short)
+        });
     }
 }
 
