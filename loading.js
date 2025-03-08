@@ -59,7 +59,7 @@ export const clearValue = () => {
     spinner.style.setProperty("--spinner-clip", "none");
 }
 
-export const error = (errText) => {
+export const error = (errText, showReportBtn) => {
     text.innerHTML = errText ?? "an error occured.";
     screen.classList.add("error");
     spinner.style.display = "none";
@@ -67,4 +67,14 @@ export const error = (errText) => {
     void face.offsetWidth;
     face.style.opacity = 1;
     face.style.transform = "translate(-50%, -50%)";
+
+    if (showReportBtn) {
+        $("#loading-report-btn").style.display = "inline-block";
+        $("#loading-report-btn").append($("#report-btn > div"));
+        $("#loading-text").onclick = function() {
+            navigator.clipboard.writeText(this.innerHTML);
+            alert("Error copied to the clipboard");
+        };
+        $("#loading-text").classList.add("clickable");
+    }
 }

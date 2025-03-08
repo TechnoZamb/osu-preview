@@ -17,7 +17,12 @@ Buttons used to activate/deactivate mods in osu! also work in osu! preview.
 
 ## How it works
 
-First, you need to be **logged in** on osu.ppy.sh for any of this to work. The extension downloads the map you are on to local storage and stores it for an hour, so that you don't need to download it again in case you want to open it in your client, as it gives you the local version when pressing the 'Download' button on the extension. Then, it unpacks the .osz (because most osu! file formats are actually just compressed archives) and reads the file it needs. Your skin and settings are saved to local storage as well.
+First, you need to be **logged in** on osu.ppy.sh for any of this to work. The extension downloads the map you are on to local storage and stores it for an hour, so that you don't need to download it again in case you want to open it in your client, as it gives you the local version when pressing the 'Download' button on the extension. Then, it unzips the .osz (because most osu! file formats are actually just compressed archives) and reads the files it needs. Your skin and settings are saved to local storage as well.
+
+## FAQ
+
+- Firefox support?
+  -  I plan to eventually port the extension to Firefox: as of now, the extension works perfectly in Firefox as well, except for the fact that it's very laggy and that also causes audio desync and I don't really understand why it's like this; if you think you can help, please do.
 
 ## Report a problem
 

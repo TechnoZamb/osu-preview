@@ -306,12 +306,14 @@ $("canvas").addEventListener("click", e => {
     }
 });
 
-$("#report-btn").addEventListener("click", e => {
+const showReportPanel = (e) => {
     if (e.target != e.currentTarget) return;
     e.currentTarget.querySelector(".report-panel").toggleAttribute("visible");
-});
+};  
+$("#report-btn").addEventListener("click", showReportPanel);
+$("#loading-report-btn").addEventListener("click", showReportPanel);
 window.addEventListener("mousedown", e => {
-    if (!e.target.closest("#report-btn")) $(".report-panel").removeAttribute("visible")
+    if (!e.target.closest(".report-btn")) $(".report-panel").removeAttribute("visible")
 });
 
 const toggleMoreTab = (e) => {
@@ -441,6 +443,10 @@ $("#reset-skin-btn").addEventListener("click", async e => {
 
     reloadModButtons();
 });
+$("#report-email-btn").addEventListener("click", e => {
+    navigator.clipboard.writeText('technozamb19@gmail.com');
+    alert('Author\'s email copied to the clipboard');
+});
 
 
 let expandFirst = false;
@@ -518,3 +524,16 @@ const readOptions = async () => {
 export const saveOptions = () => {
     if (!isDebug) chrome.storage.local.set({ options: options });
 }
+
+window.addEventListener("error", (err) => {
+    state = "error";
+    // remove extension name from file path
+    const stack = err.error.stack.replaceAll(/chrome-extension:\/\/[a-z]+(?=\/)/g, "");
+    loadingWidget.error(`${err.message}: ${stack}`, true);
+    loadingWidget.show();
+    try {
+        musicPlayer.pause();
+    }
+    catch {}
+    return false;
+});

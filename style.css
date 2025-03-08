@@ -391,20 +391,20 @@ footer {
 #more-btn[active] {
     outline: 1px solid #acbcff;
 }
-#report-btn {
+.report-btn {
     min-width: 38px;
     position: relative;
 }
-#report-btn > span {
+.report-btn > span {
     font-family: Arial, Helvetica, sans-serif;
     pointer-events: none;
 }
-#report-btn > div {
+.report-btn > div {
     position: absolute;
     bottom: 100%;
     left: 50%;
 }
-#report-btn:active:has(.report-panel:active) {
+.report-btn:active:has(.report-panel:active) {
     --blue-btn-bg1: #22468b;
     --blue-btn-bg2: #7287c3;
 }
@@ -541,6 +541,12 @@ footer {
     font-weight: bold;
     filter: drop-shadow(0 0 1px rgb(72, 72, 72));
 }
+#loading-text.clickable {
+    cursor: pointer;
+}
+#loading-text.clickable:hover {
+    background: #00000045;
+}
 #loading-progress {
     position: absolute;
     top: 50%;
@@ -548,6 +554,15 @@ footer {
     transform: translate(-50%, -50%);
     font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
     font-size: 38px;
+}
+#loading-report-btn {
+    width: 190px;
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    margin-bottom: 24px;
+    transform: translateX(-50%);
+    display: none;
 }
 
 @keyframes loadingChase {
