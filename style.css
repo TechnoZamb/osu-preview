@@ -87,6 +87,7 @@ canvas {
     transform: translate(60px, -50%);
     pointer-events: none;
     transition: transform 0.3s;
+    z-index: 1;
 }
 #volume-control[shown] {
     transform: translateY(-50%);
@@ -495,30 +496,6 @@ footer {
 }
 #loading-canvas {
    background: none;
-   -webkit-mask-image: linear-gradient(to top, #ffffffd1, #fff3);
-   mask-image: linear-gradient(to top, #ffffffd1, #fff3);
-}
-#loading-spinner {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 126px;
-    height: 126px;
-    border-radius: 50%;
-    filter: drop-shadow(0 0 3px rgb(93, 93, 93));
-    animation: loadingRotate 2s linear infinite;
-    --spinner-animation: loadingChase 2s cubic-bezier(0.14, 0.29, 0.85, 0.71) infinite;
-}
-#loading-spinner::after {
-    content: "";
-    box-sizing: border-box;
-    position: absolute;
-    inset: 0px;
-    border-radius: 50%;
-    border: 11px solid #FFF;
-    animation: var(--spinner-animation);
-    clip-path: var(--spinner-clip);
 }
 #loading-face {
     display: none;

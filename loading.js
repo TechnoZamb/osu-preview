@@ -2,7 +2,6 @@ import { $ } from "/functions.js";
 
 const screen = $("#loading-screen");
 const canvas = $("#loading-canvas");
-const spinner = $("#loading-spinner");
 const face = $("#loading-face");
 const text = $("#loading-text");
 const progress = $("#loading-progress");
@@ -44,25 +43,19 @@ export const setText = (t) => {
 
 export const setValue = (value) => {
     progress.innerHTML = parseInt(value * 100) + "%";
-    spinner.style.setProperty("--spinner-animation", "none");
-    spinner.style.setProperty("--spinner-clip", "polygon(50% 50%, 0 0, " + (
-        value < 0.25 ? `${value * 400}% 0)` :
-        value < 0.50 ? `100% 0, 100% ${(value - 0.25) * 400}%)` :
-        value < 0.75 ? `100% 0, 100% 100%, ${(0.25 - value + 0.5) * 400}% 100%)` :
-                       `100% 0, 100% 100%, 0 100%, 0 ${(0.25 - value + 0.75) * 400}%`)
-    );
+    worker.postMessage(["setValue", value]);
 }
 
 export const clearValue = () => {
     progress.innerHTML = "";
-    spinner.style.setProperty("--spinner-animation", "");
-    spinner.style.setProperty("--spinner-clip", "none");
+    worker.postMessage(["setValue", null]);
 }
 
 export const error = (errText, showReportBtn) => {
-    text.innerHTML = errText ?? "an error occured.";
+    text.innerHTML = errText ?? "An error occured.";
     screen.classList.add("error");
-    spinner.style.display = "none";
+    progress.style.display = "none";
+    worker.postMessage(["error"]);
     face.style.display = "block";
     void face.offsetWidth;
     face.style.opacity = 1;

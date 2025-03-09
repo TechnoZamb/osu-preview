@@ -1,8 +1,12 @@
 let canvas, ctx;
 let triangleList;
-let lastTime = 0;
+let gradient;
+let startTime, lastTime = 0;
 let stopLoading = false;
-let shown = false;
+let shown = false, showSpinner = true;
+let value = null;
+const chaseDuration = 2000, rotateDuration = 2000;
+const smallestArc = 0.3, stopDuration = 0.1;
 
 
 self.addEventListener("message", function(e) {
@@ -10,6 +14,12 @@ self.addEventListener("message", function(e) {
         case "init": {
             canvas = e.data[1];
             ctx = canvas.getContext("2d");
+            startTime = performance.now();
+
+            // create gradient
+            gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, "#ffffffd1");
+            gradient.addColorStop(1, "#ffffff33");
             break;
         }
         case "show": {
@@ -35,7 +45,8 @@ self.addEventListener("message", function(e) {
             })();
 
             (function inner() {
-                const deltaY = performance.now() - lastTime;
+                const now = performance.now();
+                const deltaY = now - lastTime;
 
                 ctx.globalCompositeOperation = "source-over";
                 ctx.globalAlpha = 1;
@@ -65,8 +76,36 @@ self.addEventListener("message", function(e) {
                     ctx.closePath();
                     ctx.stroke();
                 }
-                ctx.fillStyle = "#2a146d00";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                if (showSpinner) {
+                    ctx.fillStyle = gradient;
+                    ctx.globalCompositeOperation = "destination-out";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    const deltaStart = now - startTime;
+                    let startAngle, endAngle;
+                    if (value === null) {
+                        startAngle = deltaStart % chaseDuration < (chaseDuration * 0.5) ?
+                            -smallestArc :
+                            smallestArc * 1.001 + clamp(0, (deltaStart % chaseDuration / chaseDuration - 0.5) * 2 * (1 + stopDuration * 2) - stopDuration, 1) * (2 * Math.PI - 2 * smallestArc);
+                        endAngle = deltaStart % chaseDuration < (chaseDuration * 0.5) ?
+                            smallestArc + clamp(0, (deltaStart % chaseDuration * 2) / chaseDuration * (1 + stopDuration * 2) - stopDuration, 1) * (2 * Math.PI - 2 * smallestArc) :
+                            smallestArc;
+                    }
+                    else {
+                        startAngle = 0;
+                        endAngle = value * 2 * Math.PI;
+                    }
+                    startAngle += now / rotateDuration * 2 * Math.PI;
+                    endAngle += now / rotateDuration * 2 * Math.PI;
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.globalAlpha = 1;
+                    ctx.lineWidth = 12;
+                    ctx.globalCompositeOperation = "source-over";
+                    ctx.beginPath();
+                    ctx.arc(800 / 2, 600 / 2, 63 - 6, startAngle - Math.PI * 0.5, endAngle - Math.PI * 0.5, false);
+                    ctx.stroke();
+                }
 
 
                 lastTime = performance.now();
@@ -96,5 +135,19 @@ self.addEventListener("message", function(e) {
             shown = false;
             break;
         }
+        case "setValue": {
+            value = e.data[1];
+            break;
+        }
+        case "setValue": {
+            value = null;
+            break;
+        }
+        case "error": {
+            showSpinner = false;
+            break;
+        }
     }    
 });
+
+const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
