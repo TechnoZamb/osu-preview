@@ -147,7 +147,7 @@ self.addEventListener("message", function(e) {
             showSpinner = false;
             break;
         }
-    }    
+    }
 });
 
 const clamp = (min, n, max) => Math.min(max, Math.max(min, n));
