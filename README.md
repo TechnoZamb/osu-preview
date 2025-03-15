@@ -5,9 +5,11 @@ Built on plain HTML, CSS and Javascript. Uses [zip.js](https://github.com/gildas
 
 ## Screenshots
 
-<img src="assets/screen1.png" alt="Screenshot 1" width="32%" />
-<img src="assets/screen2.png" alt="Screenshot 2" width="32%" />
-<img src="assets/screen3.png" alt="Screenshot 3" width="32%" />
+<p float="left">
+    <img src="assets/screen1.png" alt="Screenshot 1" width="32%" />
+    <img src="assets/screen2.png" alt="Screenshot 2" width="32%" />
+    <img src="assets/screen3.png" alt="Screenshot 3" width="32%" />
+</p>
 
 ## Controls
 
