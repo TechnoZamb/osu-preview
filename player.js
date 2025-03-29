@@ -10,7 +10,7 @@ export class MusicPlayer {
         MusicPlayer.#initializing = false;
     }
 
-    static async init(file) {
+    static async init(file, fallbackDuration) {
         MusicPlayer.#initializing = true;
         const player = new MusicPlayer();
         
@@ -37,8 +37,16 @@ export class MusicPlayer {
         gainNode.connect(volumes.general[1]);
         volumes.music[1] = gainNode;
 
-        // decode song
-        const buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
+        let buffer;
+        try {
+            // decode song
+            buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
+        }
+        catch {
+            // we just empty audio and for the duration we take the last hitobject's endtime and add 1 second
+            const freq = 44100;
+            buffer = player.audioContext.createBuffer(1, fallbackDuration * freq, freq);
+        }
         const wavBlob = WAVBuilder.build(buffer);
         
         // wait for audio element to load song
@@ -49,7 +57,7 @@ export class MusicPlayer {
 
         // connect audio element to audio node
         player.audioContext.createMediaElementSource(player.audio).connect(volumes.music[1]);
-        
+
         player.duration = player.audio.duration;
         player.playbackRate = 1;
 
@@ -100,7 +108,7 @@ export class MusicPlayer {
 class WAVBuilder {
     static build(audioBuffer) {
         // Float32Array samples
-        const [left, right] = [audioBuffer.getChannelData(0), audioBuffer.getChannelData(1)];
+        const [left, right] = [audioBuffer.getChannelData(0), audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : audioBuffer.getChannelData(0)];
 
         // interleaved
         const length = Math.min(left.length, right.length);

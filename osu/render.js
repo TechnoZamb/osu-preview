@@ -921,7 +921,7 @@ const followPoints = (time) => {
                     ctx.globalAlpha = 1 - clamp(0, (time - fadeOutTime) / 400, 1);
                 }
 
-                const sprite = skin.followpoint[time >= fadeInTime + 1000 ? 0 : parseInt(Math.min(time - fadeInTime, 999) / 1000 * skin.followpoint.length)];
+                const sprite = skin.followpoint[time >= fadeInTime + 1000 ? 0 : parseInt(Math.min(time - fadeInTime, 999) / 1000 * skin.followpoint.length)] ?? skin.followpoint[0];
                 const size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height];
                 const x = endPoint[0] + (startPoint[0] - endPoint[0]) * animRatio;
                 const y = endPoint[1] + (startPoint[1] - endPoint[1]) * animRatio;

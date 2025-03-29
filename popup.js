@@ -30,13 +30,6 @@ let tab;
 
 export const isDebug = !(typeof chrome !== 'undefined' && chrome && chrome.tabs && chrome.storage);
 
-let error = false;
-["error", "unhandledrejection"].forEach(x => window.addEventListener(x, async (e) => {
-    if (error) return;
-    try { musicPlayer.pause(); } catch { }
-    try { loadingWidget.error(); } catch { alert("An error occured. Contact the developer"); }
-    error = true;
-}));
 
 window.addEventListener("load", async (e) => {
     // begin loading process
@@ -45,7 +38,7 @@ window.addEventListener("load", async (e) => {
 
     if (!isDebug) {
         // get current tab URL
-        tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/773330#osu/1626537", id: 0 };
+        tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/919187#osu/1919312", id: 0 };
         if (!tab) throw new Error();
         let tabURL = tab.url;
 
@@ -525,15 +518,24 @@ export const saveOptions = () => {
     if (!isDebug) chrome.storage.local.set({ options: options });
 }
 
-window.addEventListener("error", (err) => {
+["error", "unhandledrejection"].forEach(x => window.addEventListener(x, async (err) => {
+    if (state == "error") return;
     state = "error";
+    let errMessage;
+    if (err.type === "unhandledrejection") {
+        errMessage = err.reason.stack ?? (err.reason.name + ": " + err.reason.message);
+    }
+    else {
+        errMessage = err.error.stack;
+    }
+
     // remove extension name from file path
-    const stack = err.error.stack.replaceAll(/chrome-extension:\/\/[a-z]+(?=\/)/g, "");
-    loadingWidget.error(`${err.message}: ${stack}`, true);
+    errMessage = errMessage.replaceAll(/chrome-extension:\/\/[a-z]+(?=\/)/g, "");
+    loadingWidget.error(errMessage, true);
     loadingWidget.show();
     try {
         musicPlayer.pause();
     }
-    catch {}
+    catch { }
     return false;
-});
+}));

@@ -49,7 +49,8 @@ export async function initOsu(mapsetBlob, skinBlob, beatmapID) {
 
     // initialize music player
     const songBlob = await getSongBlob(mapsetFiles, beatmap);
-    const player = await MusicPlayer.init(songBlob);
+    const fallbackDuration = (beatmap.HitObjects.at(-1).endTime + 1000) / 1000;
+    const player = await MusicPlayer.init(songBlob, fallbackDuration);
     beatmap.duration = player.duration;
 
     computeBreaks(player);
@@ -245,7 +246,7 @@ const getBackgroundPictureBlob = async (entries, beatmap) => {
 
 const getSongBlob = async (entries, beatmap) => {
     const songFileName = beatmap.General.AudioFilename.trim();
-    return await entries[songFileName]?.getData(new BlobWriter());
+    return (await entries[songFileName]?.getData(new BlobWriter())) ?? new Blob();
 }
 
 const computeMapProperties = () => {

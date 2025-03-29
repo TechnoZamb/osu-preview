@@ -63,7 +63,7 @@ export const error = (errText, showReportBtn) => {
 
     if (showReportBtn) {
         $("#loading-report-btn").style.display = "inline-block";
-        $("#loading-report-btn").append($("#report-btn > div"));
+        $("#loading-report-btn").append($("#report-btn > div") ?? "");
         $("#loading-text").onclick = function() {
             navigator.clipboard.writeText(this.innerHTML);
             alert("Error copied to the clipboard");
