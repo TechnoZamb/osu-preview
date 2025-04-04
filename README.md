@@ -3,7 +3,7 @@
 osu! preview is a chromium extension that allows you to preview osu!standard beatmaps in your browser. It correctly plays most maps, renders 99% similarly to the osu! client, gives you a seekbar to jump to any part of the map, allows you to adjust all volumes and background dim, it has support for mods (EZ, HR, HT, DT, HD, FL), skins, and autoplay.
 Built on plain HTML, CSS and Javascript. Uses [zip.js](https://github.com/gildas-lormeau/zip.js).
 
-Get it on [chrome web store](https://chromewebstore.google.com/detail/osu-preview/gnioipmhffmpigpjdoeoadgbohcjcddp).
+Get it on [Chrome Web Store](https://chromewebstore.google.com/detail/osu-preview/gnioipmhffmpigpjdoeoadgbohcjcddp).
 
 ## Screenshots
 
