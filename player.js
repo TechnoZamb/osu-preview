@@ -43,8 +43,8 @@ export class MusicPlayer {
             buffer = await player.audioContext.decodeAudioData(await file.arrayBuffer());
         }
         catch {
-            // we just empty audio and for the duration we take the last hitobject's endtime and add 1 second
-            const freq = 44100;
+            // we just create an empty audio and for the duration we take the last hitobject's endtime and add 1 second
+            const freq = 48000;
             buffer = player.audioContext.createBuffer(1, fallbackDuration * freq, freq);
         }
         const wavBlob = WAVBuilder.build(buffer);
@@ -52,7 +52,7 @@ export class MusicPlayer {
         // wait for audio element to load song
         let callback;
         const promise = new Promise(r => callback = r);
-        player.audio = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(wavBlob), oncanplaythrough: callback });
+        player.audio = Object.assign(document.createElement("audio"), { src: URL.createObjectURL(wavBlob), oncanplaythrough: callback, preservesPitch: false });
         await Promise.all([promise]);
 
         // connect audio element to audio node
@@ -122,7 +122,7 @@ class WAVBuilder {
         const options = {
             isFloat: true,       // floating point or 16-bit integer
             numChannels: 2,
-            sampleRate: 48000,
+            sampleRate: audioBuffer.sampleRate,
         };
         const wavBytes = WAVBuilder.getWavBytes(interleaved.buffer, options);
 

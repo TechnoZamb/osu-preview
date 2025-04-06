@@ -244,6 +244,9 @@ canvas {
 #background-dim::-webkit-slider-thumb {
     opacity: 0;
 }
+#background-dim::-moz-range-thumb {
+    opacity: 0;
+}
 #slider-thumb {
     position: absolute;
     top: 50%;
