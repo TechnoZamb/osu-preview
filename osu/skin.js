@@ -595,6 +595,8 @@ const buffer = document.createElement("canvas");
 const context = buffer.getContext("2d", { willReadFrequently: true });
 
 function tintImage(img, color) {
+    if (img.width == 0 || img.height == 0)
+        return img;
     buffer.width = img.width; buffer.height = img.height;
     context.drawImage(img, 0, 0, img.width, img.height);
     const data = context.getImageData(0, 0, img.width, img.height);
