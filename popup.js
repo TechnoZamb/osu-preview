@@ -436,6 +436,14 @@ $("#reset-skin-btn").addEventListener("click", async e => {
 
     reloadModButtons();
 });
+$("#download-options-btn").addEventListener("click", e => {
+    if (chrome.runtime.openOptionsPage) {
+        chrome.runtime.openOptionsPage();
+    }
+    else {
+        window.open(chrome.runtime.getURL("options.html"));
+    }
+});
 $("#report-email-btn").addEventListener("click", e => {
     navigator.clipboard.writeText('technozamb19@gmail.com');
     alert('Author\'s email copied to the clipboard');
