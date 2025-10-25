@@ -4,6 +4,7 @@ import { ProgressBar } from "./progress.js";
 import * as loadingWidget from "/loading.js";
 import { volumes, updateSliders } from "/volumes.js";
 import { $, sleep } from "./functions.js";
+import { readDownloadOptions } from './downloadOptions.js';
 
 
 export let options = {
@@ -61,7 +62,9 @@ window.addEventListener("load", async (e) => {
             console.log("Beatmap not found in local storage; downloading it");
             loadingWidget.setText("downloading beatmap");
 
-            const downloadResult = await downloadMapset(`https://osu.ppy.sh/beatmapsets/${beatmapSetID}/download`);
+            const { urlTemplate } = await readDownloadOptions();
+            const url = urlTemplate.replaceAll("{id}", beatmapSetID);
+            const downloadResult = await downloadMapset(url);
             if (typeof downloadResult === "string") {
                 loadingWidget.clearValue();
                 loadingWidget.error(downloadResult);
