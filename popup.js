@@ -61,6 +61,7 @@ window.addEventListener("load", async (e) => {
         if (!storedMap) {
             console.log("Beatmap not found in local storage; downloading it");
             loadingWidget.setText("downloading beatmap");
+            loadingWidget.showDownloadOptionsBtn();
 
             const { urlTemplate } = await readDownloadOptions();
             const url = urlTemplate.replaceAll("{id}", beatmapSetID);
