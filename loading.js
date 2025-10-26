@@ -60,7 +60,7 @@ export const showDownloadOptionsBtn = () => {
         else {
             window.open(chrome.runtime.getURL("options.html"));
         }
-  });
+    });
 }
 
 export const error = (errText, showReportBtn) => {
