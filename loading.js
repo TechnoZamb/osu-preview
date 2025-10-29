@@ -51,6 +51,18 @@ export const clearValue = () => {
     worker.postMessage(["setValue", null]);
 }
 
+export const showDownloadOptionsBtn = () => {
+    $("#loading-download-options-btn").style.display = "inline-block";
+    $("#loading-download-options-btn").addEventListener("click", e => {
+        if (chrome.runtime.openOptionsPage) {
+            chrome.runtime.openOptionsPage();
+        }
+        else {
+            window.open(chrome.runtime.getURL("options.html"));
+        }
+    });
+}
+
 export const error = (errText, showReportBtn) => {
     text.innerHTML = errText ?? "An error occured.";
     screen.classList.add("error");
