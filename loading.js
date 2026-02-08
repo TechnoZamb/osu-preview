@@ -1,4 +1,5 @@
 import { $ } from "/functions.js";
+import { resetDownloadOptionsState } from "./downloadOptions.js";
 
 const screen = $("#loading-screen");
 const canvas = $("#loading-canvas");
@@ -53,13 +54,12 @@ export const clearValue = () => {
 
 export const showDownloadOptionsBtn = () => {
     $("#loading-download-options-btn").style.display = "inline-block";
+    $("#download-options-tab").style.zIndex = 1;
+    $("#download-options-tab").style.position = "fixed";
+    
     $("#loading-download-options-btn").addEventListener("click", e => {
-        if (chrome.runtime.openOptionsPage) {
-            chrome.runtime.openOptionsPage();
-        }
-        else {
-            window.open(chrome.runtime.getURL("options.html"));
-        }
+        resetDownloadOptionsState();
+        $("#download-options-tab").setAttribute("shown", "");
     });
 }
 

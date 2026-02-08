@@ -4,7 +4,7 @@ import { ProgressBar } from "./progress.js";
 import * as loadingWidget from "/loading.js";
 import { volumes, updateSliders } from "/volumes.js";
 import { $, sleep } from "./functions.js";
-import { readDownloadOptions } from './downloadOptions.js';
+import { saveDownloadOptions, readDownloadOptions, resetDownloadOptionsState } from './downloadOptions.js';
 
 
 export let options = {
@@ -218,6 +218,7 @@ const clearOldMaps = async () => {
 // ------ INPUT ------
 window.addEventListener("keydown", e => {
     if (state !== "ready") return;
+    if (document.activeElement.id == "custom-url-input") return;
 
     switch (e.code) {
         case "Comma":
@@ -288,7 +289,9 @@ window.addEventListener("keydown", e => {
         if (!musicPlayer.paused) musicPlayer.play();
     }
 });
-document.addEventListener("mouseup", e => document.activeElement.blur());
+document.addEventListener("mouseup", e => {
+    if (document.activeElement.id != "custom-url-input") document.activeElement.blur();
+});
 
 $("canvas").addEventListener("click", e => {
     if (state != "ready") return;
@@ -325,6 +328,10 @@ const toggleMoreTab = (e) => {
     }
     e.preventDefault();
     e.stopPropagation();
+
+    if ($("#download-options-tab").hasAttribute("shown")) {
+        $("#download-options-tab").removeAttribute("shown");
+    }
 }
 $("#more-btn").addEventListener("click", toggleMoreTab);
 $("#download-btn").addEventListener("click", e => {
@@ -440,19 +447,21 @@ $("#reset-skin-btn").addEventListener("click", async e => {
 
     reloadModButtons();
 });
-$("#download-options-btn").addEventListener("click", e => {
-    if (chrome.runtime.openOptionsPage) {
-        chrome.runtime.openOptionsPage();
-    }
-    else {
-        window.open(chrome.runtime.getURL("options.html"));
-    }
-});
 $("#report-email-btn").addEventListener("click", e => {
     navigator.clipboard.writeText('technozamb19@gmail.com');
     alert('Author\'s email copied to the clipboard');
 });
-
+$("#download-options-btn").addEventListener("click", e => {
+    resetDownloadOptionsState();
+    $("#download-options-tab").setAttribute("shown", "");
+});
+$("#save-btn").addEventListener("click", e => {
+    let close = saveDownloadOptions();
+    if (close) $("#download-options-tab").removeAttribute("shown");
+});
+$("#close-btn").addEventListener("click", e => {
+    $("#download-options-tab").removeAttribute("shown");
+});
 
 let expandFirst = false;
 const expandWidget = (src, filter) => {

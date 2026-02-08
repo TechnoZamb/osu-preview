@@ -172,7 +172,7 @@ canvas {
     opacity: 0 !important;
 }
 
-#more-tab {
+#more-tab, #download-options-tab {
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -186,7 +186,7 @@ canvas {
     pointer-events: none;
     transition: opacity 0.2s linear;
 }
-#more-tab[shown] {
+#more-tab[shown], #download-options-tab[shown] {
     opacity: 1;
     pointer-events: all;
 }
@@ -268,7 +268,6 @@ canvas {
     flex: 1;
     max-width: 100%;
     overflow: hidden;
-    margin-bottom: 14px;
 }
 .left > p {
     max-width: 100%;
@@ -276,6 +275,7 @@ canvas {
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 16px;
+    margin-top: 0;
 }
 #upload-skin-btn {
     display: inline-block;
@@ -326,7 +326,7 @@ footer {
     gap: 8px;
 }
 .btn-big {
-    min-width: 160px;
+    min-width: 170px;
     border: none;
     font-family: inherit;
     font-weight: 600;
@@ -457,7 +457,7 @@ footer {
     color: black;
     cursor: pointer;
 }
-.download-options-btn {
+#download-options-btn {
     height: 38px;
     font-size: 18px;
     margin-top: 12px;
@@ -567,4 +567,138 @@ footer {
 }
 @keyframes loadingRotate {
     100%   {transform: translate(-50%, -50%) rotate(360deg)}
+}
+
+
+/* ----- Download options tab ----- */
+#download-options-tab-inner {
+    padding: 20px 14px;
+    margin: auto 0;
+    background-color: #302E38;
+}
+
+#download-options-tab-inner > .title {
+    font-size: 28px;
+    margin: 0;
+}
+
+#download-options-tab-inner > button {
+    min-width: 180px;
+}
+
+.options-section {
+    padding: 10px 0 16px;
+}
+
+.options-section > div {
+    font-size: 18px;
+    margin: 14px 0;
+    vertical-align: middle;
+}
+
+.options-section label {
+    cursor: pointer;
+}
+
+.options-section input[type="radio"] {
+    vertical-align: middle;
+    appearance: none;
+    margin: -2px 0 0 6px;
+    border: 1px solid pink;
+    border-radius: 50%;
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.options-section input[type="radio"]:checked {
+    background: pink;
+}
+
+.options-section input[type="text"] {
+    width: 65%;
+    font-size: 18px;
+    padding: 6px;
+    border: 2px solid #212121;
+    border-radius: 4px;
+    color: white;
+    background-color: #212121;
+}
+
+.options-section input[type="text"]::placeholder {
+    color: #e0e0e0;
+    font-style: italic;
+}
+
+.options-section input[type="text"]:focus {
+    border-color: #ffd54f;
+    outline: none;
+}
+
+.caution {
+    position: relative;
+    display: inline-block;
+    text-align: center;
+    vertical-align: middle;
+    margin: -3px 0 0 4px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0;
+}
+
+.caution:hover {
+    --pink-btn-bg1: #953050;
+    --pink-btn-bg2: #cd6892;
+}
+
+.caution:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.tooltip-text {
+    visibility: hidden;
+    position: absolute;
+    z-index: 1;
+    width: 435px;
+    margin-left: -100px;
+    padding: 5px 0;
+    font-size: 17px;
+    border: 2px solid #ffd54f;
+    border-radius: 4px;
+    background-color: #302e38;
+    bottom: 135%;
+    left: 50%;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+#toast-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+    align-items: end;
+}
+
+#toast-container > .toast {
+    font-size: 22px;
+    text-align: center;
+    background-color: #212121;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 1px solid #ffd54f;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+#toast-container > .toast.show {
+    opacity: 1;
+    transform: translateY(0);
 }

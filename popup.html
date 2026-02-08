@@ -73,6 +73,45 @@
                 </div>
             </div>
         </div>
+        <div id="download-options-tab">
+            <div id="download-options-tab-inner">
+                <h1 class="title">Beatmap provider</h1>
+                <div class="options-section">
+                    <div>
+                        <label for="osu">Official osu! website</label>
+                        <input type="radio" id="osu" name="provider" value="osu">
+                    </div>
+                    <div>
+                        <label for="nerinyan">NeriNyan (South Korea)</label>
+                        <input type="radio" id="nerinyan" name="provider" value="nerinyan">
+                    </div>
+                    <div>
+                        <label for="sayobot">Sayobot (China)</label>
+                        <input type="radio" id="sayobot" name="provider" value="sayobot">
+                    </div>
+                    <div>
+                        <label for="mino">Mino (Poland / Canada)</label>
+                        <div class="btn-big pink caution">
+                            !
+                            <span class="tooltip-text">
+                                This provider doesn't support no-video downloads.
+                            </span>
+                        </div>
+                        <input type="radio" id="mino" name="provider" value="mino">
+                    </div>
+                    <div>
+                        <label for="custom">Custom URL - replace beatmapset ID with {id}</label>
+                        <input type="radio" id="custom" name="provider" value="custom">
+                    </div>
+                    <div>
+                        <input type="text" id="custom-url-input" placeholder="https://example.com/{id}">
+                    </div>
+                </div>
+                <button id="save-btn" class="btn-big blue">Save</button>
+                <button id="close-btn" class="btn-big red">Discard & close</button>
+            </div>
+        </div>
+        <div id="toast-container"></div>
     </main>
     <footer>
         <div id="footer-left">

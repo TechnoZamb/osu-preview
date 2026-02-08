@@ -1,3 +1,5 @@
+import { isDebug } from "./popup.js";
+
 const providerList = {
     osu: "https://osu.ppy.sh/beatmapsets/{id}/download?noVideo=1",
     nerinyan: "https://api.nerinyan.moe/d/{id}?nv=1",
@@ -5,20 +7,20 @@ const providerList = {
     mino: "https://catboy.best/d/{id}"
 };
 
-if (document.body.className === "download-options") {
-    window.addEventListener("load", async (e) => {
-        const { provider, urlTemplate } = await readDownloadOptions();
-        document.getElementById(provider).checked = true;
+let savedProvider, savedUrlTemplate;
 
-        if (provider === "custom") {
-            document.getElementById("custom-url-input").value = urlTemplate;
+window.addEventListener("load", async (e) => {
+    if (!isDebug) {
+        ({ provider: savedProvider, urlTemplate: savedUrlTemplate } = await readDownloadOptions());
+        document.getElementById(savedProvider).checked = true;
+
+        if (savedProvider === "custom") {
+            document.getElementById("custom-url-input").value = savedUrlTemplate;
         }
+    }
+});
 
-        document.getElementById("save-btn").addEventListener("click", saveDownloadOptions);
-    });
-}
-
-const saveDownloadOptions = () => {
+export const saveDownloadOptions = () => {
     const provider = document.querySelector("input[name='provider']:checked").value;
     let urlTemplate;
 
@@ -27,7 +29,7 @@ const saveDownloadOptions = () => {
 
         if (!customUrl.includes("{id}")) {
             showToast("URL must include {id}.");
-            return;
+            return false;
         }
 
         if (!/^https?:\/\//i.test(customUrl)) {
@@ -44,6 +46,11 @@ const saveDownloadOptions = () => {
     chrome.storage.local.set({ downloadOptions: { provider, urlTemplate } }, () => {
         showToast("Saved!");
     });
+
+    savedProvider = provider;
+    savedUrlTemplate = urlTemplate;
+
+    return true;
 };
 
 export const readDownloadOptions = async () => {
@@ -60,6 +67,15 @@ export const readDownloadOptions = async () => {
         return savedDownloadOptions;
     }
 }
+
+export const resetDownloadOptionsState = () => {
+    if (savedProvider) {
+        document.getElementById(savedProvider).checked = true;
+        if (savedProvider === "custom") {
+            document.getElementById("custom-url-input").value = savedUrlTemplate;
+        }
+    }
+};
 
 function showToast(message, duration = 3000) {
     const toastContainer = document.getElementById("toast-container");
@@ -78,4 +94,3 @@ function showToast(message, duration = 3000) {
 
     setTimeout(hide, duration);
 }
-
