@@ -76,7 +76,7 @@
         <div id="download-options-tab">
             <div id="download-options-tab-inner">
                 <h1 class="title">Beatmap provider</h1>
-                <div class="options-section">
+                <div class="section">
                     <div>
                         <label for="osu">Official osu! website</label>
                         <input type="radio" id="osu" name="provider" value="osu">
@@ -107,6 +107,15 @@
                         <input type="text" id="custom-url-input" placeholder="https://example.com/{id}">
                     </div>
                 </div>
+
+                <h1 class="title">Video download</h1>
+                <div class="section">
+                    <div>
+                        <input type="checkbox" id="with-video" name="with-video">
+                        <label for="with-video">Download with video</label>
+                    </div>
+                </div>
+
                 <button id="save-btn" class="btn-big blue">Save</button>
                 <button id="close-btn" class="btn-big red">Discard & close</button>
             </div>

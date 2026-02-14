@@ -39,7 +39,7 @@ window.addEventListener("load", async (e) => {
 
     if (!isDebug) {
         // get current tab URL
-        tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/919187#osu/1919312", id: 0 };
+        tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/140662#osu/351189", id: 0 };
         if (!tab) throw new Error();
         let tabURL = tab.url;
 
@@ -68,7 +68,7 @@ window.addEventListener("load", async (e) => {
             const downloadResult = await downloadMapset(url);
             if (typeof downloadResult === "string") {
                 loadingWidget.clearValue();
-                loadingWidget.error(downloadResult);
+                loadingWidget.error(downloadResult, true);
                 return;
             }
             else {
@@ -190,6 +190,10 @@ const downloadMapset = async (url) => {
     xmlHTTP.onprogress = function(pr) {
         loadingWidget.setValue(pr.loaded / pr.total);
     };
+    xmlHTTP.onerror = function(e) {
+        result = "an error occured.";
+        callback();
+    }
     xmlHTTP.send();
     await Promise.allSettled([promise]);
     return result;
@@ -405,6 +409,10 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
             await osu.reloadSkin();
             break;
         }
+        default: {
+            val = !e.target.hasAttribute("toggled");
+            break;
+        }
     }
 
     val ? e.target.setAttribute("toggled", "") : e.target.removeAttribute("toggled");
@@ -462,6 +470,14 @@ $("#save-btn").addEventListener("click", e => {
 $("#close-btn").addEventListener("click", e => {
     $("#download-options-tab").removeAttribute("shown");
 });
+document.querySelectorAll("input[name='provider']").forEach(x => x.addEventListener("change", e => {
+    if (e.target.value === "mino" || e.target.value === "custom") {
+        $("input[name='with-video']").setAttribute("disabled", "");
+    }
+    else {
+        $("input[name='with-video']").removeAttribute("disabled");
+    }
+}));
 
 let expandFirst = false;
 const expandWidget = (src, filter) => {

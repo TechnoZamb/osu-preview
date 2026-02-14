@@ -1,6 +1,6 @@
 {
     "name": "osu! preview",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "Preview osu! beatmaps inside the browser",
     "permissions": ["storage", "tabs", "declarativeNetRequest", "unlimitedStorage", "downloads"],
     "host_permissions": ["https://*.ppy.sh/*"],
@@ -16,9 +16,5 @@
         "16": "/assets/icon16.png",
         "48": "/assets/icon48.png",
         "128": "/assets/icon128.png"
-    },
-    "options_ui": {
-        "page": "download-options.html",
-        "open_in_tab": true
     }
 }

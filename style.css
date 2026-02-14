@@ -586,24 +586,24 @@ footer {
     min-width: 180px;
 }
 
-.options-section {
-    padding: 10px 0 16px;
+.section {
+    padding-bottom: 20px;
 }
 
-.options-section > div {
+.section > div {
     font-size: 18px;
-    margin: 14px 0;
+    margin-top: 14px;
     vertical-align: middle;
 }
 
-.options-section label {
+.section label {
     cursor: pointer;
 }
 
-.options-section input[type="radio"] {
+.section input[type="radio"], .section input[type="checkbox"] {
     vertical-align: middle;
     appearance: none;
-    margin: -2px 0 0 6px;
+    margin-top: -2px;
     border: 1px solid pink;
     border-radius: 50%;
     width: 17px;
@@ -611,12 +611,18 @@ footer {
     cursor: pointer;
     transition: background 0.1s;
 }
+.section input[type="radio"] {
+    margin-left: 6px;
+}
+.section input[type="checkbox"] {
+    margin-right: 6px;
+}
 
-.options-section input[type="radio"]:checked {
+.section input[type="radio"]:checked, .section input[type="checkbox"]:checked {
     background: pink;
 }
 
-.options-section input[type="text"] {
+.section input[type="text"] {
     width: 65%;
     font-size: 18px;
     padding: 6px;
@@ -626,14 +632,19 @@ footer {
     background-color: #212121;
 }
 
-.options-section input[type="text"]::placeholder {
+.section input[type="text"]::placeholder {
     color: #e0e0e0;
     font-style: italic;
 }
 
-.options-section input[type="text"]:focus {
+.section input[type="text"]:focus {
     border-color: #ffd54f;
     outline: none;
+}
+
+.section div:has(input:disabled) {
+    filter: grayscale(1) brightness(0.5);
+    pointer-events: none;
 }
 
 .caution {
@@ -661,9 +672,9 @@ footer {
     visibility: hidden;
     position: absolute;
     z-index: 1;
-    width: 435px;
+    white-space: nowrap;
     margin-left: -100px;
-    padding: 5px 0;
+    padding: 5px 10px;
     font-size: 17px;
     border: 2px solid #ffd54f;
     border-radius: 4px;
