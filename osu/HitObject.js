@@ -11,8 +11,17 @@ export class HitObject {
         const throwInvalidVal = (field) => { throw new TypeError(`Hitobject #${index}: Invalid value for field ${field}`) };
 
         const hitSample = (index2) => {
-            this.hitSample = obj[index2]?.split?.(":").map((x, i) => (i != 4 ? validateInt(x, "hitSample") : x)) ?? [0, 0, 0, 0, ""];
-            this.hitSample[3] = clamp(0, this.hitSample[3], 100);
+            this.hitSample = [];
+            var samples = obj[index2]?.split?.(":");
+            if (!samples)
+                this.hitSample = [0, 0, 0, 0, ""];
+            else {
+                for (let i = 0; i < 4; i++) {
+                    this.hitSample[i] = samples[i] ? validateInt(samples[i], "hitSample") : 0;
+                }
+                this.hitSample[4] = samples[4];
+            }
+            this.hitSample[3] = clamp(0, this.hitSample[3] ?? "", 100);
         };
 
         this.x = validateInt(obj[0], "x");
