@@ -136,7 +136,6 @@ window.addEventListener("load", async (e) => {
     musicPlayer = await osu.initOsu(oszBlob, skinBlob, beatmapID);
     musicPlayer.onPlay = (e) => osu.queueHitsounds(musicPlayer.currentTime);
     progressBar = new ProgressBar("#progress-bar", musicPlayer);
-    progressBar.onFrame = frame;
 
     oszFilename = `${beatmapSetID} ${osu.beatmap.Metadata.Artist} - ${osu.beatmap.Metadata.Title}.osz`;
 
@@ -146,27 +145,29 @@ window.addEventListener("load", async (e) => {
     state = "ready";
     loadingWidget.hide();
 
-    // bullshit that i HAVE to do in order to not have desynced hitsounds at first
-    await sleep(100);
     musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
-    volumes.general[1].gain.value = 0;
-    musicPlayer.play();
-    await sleep(100);
     volumes.general[1].gain.value = volumes.general[0];
     musicPlayer.play();
+
+    loop();
 });
 
-function frame(time) {
-    time *= 1000;
-
-    osu.adjustSpinnerSpinPlaybackRate(time);
-    render.render(time);
+let lastTime = performance.now();
+function loop() {
+    const time = performance.now();
+    const deltaT = time - lastTime;
+    lastTime = time;
+    const songTime = progressBar.frame(deltaT);
+    osu.adjustSpinnerSpinPlaybackRate(songTime);
+    render.render(songTime);
     
     // adjust time indicator
     timeIndicator.innerHTML =
         parseInt(musicPlayer.currentTime / 60) + ':' + parseInt(musicPlayer.currentTime % 60).toString().padStart(2, '0') +
         ' / ' +
         parseInt(musicPlayer.duration / 60) + ':' + parseInt(musicPlayer.duration % 60).toString().padStart(2, '0');
+
+    window.requestAnimationFrame(loop);
 }
 
 const downloadMapset = async (url) => {

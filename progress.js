@@ -5,7 +5,7 @@ export class ProgressBar {
     easingFactor = 0.2; offset = 0.001;
     targetValue = -1; actualValue = 0.5;
     dragging = false;
-    changeSpeedInterval = 0.2;
+    changeSpeedInterval = 200;
     lastSpeedChangeTime = 0;
 
     constructor(element, musicPlayer) {
@@ -18,6 +18,7 @@ export class ProgressBar {
         this.player = musicPlayer;
 
         this.progressBar.addEventListener("mousedown", e => {
+            e.preventDefault();
             this.targetValue = e.offsetX / this.progressBar.clientWidth;
             this.dragging = true;
             this.progressBar.setAttribute("hover", "hover");
@@ -38,22 +39,23 @@ export class ProgressBar {
         this.frame();
     }
 
-    frame() {
-        var deltaT = (performance.now() - this.time) / 1000;
+    frame(deltaT_Ms) {
         var actualValue = this.actualValue, targetValue = this.targetValue;
 
+        // if actualValue has not reached targetValue yet
         if (targetValue != -1) {
             var diff = targetValue - actualValue;
 
+            // if the difference is big enough, move actualValue towards targetValue, otherwise snap to targetValue
             if (diff > 0.0005) {
-                actualValue += (diff * this.easingFactor + this.offset) * deltaT * 100;
+                actualValue += (diff * this.easingFactor + this.offset) * deltaT_Ms / 10;
                 if (actualValue > targetValue) {
                     actualValue = targetValue;
                     targetValue = -1;
                 }
             }
             else if (diff < -0.0005) {
-                actualValue += (diff * this.easingFactor - this.offset) * deltaT * 100;
+                actualValue += (diff * this.easingFactor - this.offset) * deltaT_Ms / 10;
                 if (actualValue < targetValue) {
                     actualValue = targetValue;
                     targetValue = -1;
@@ -64,9 +66,11 @@ export class ProgressBar {
                 targetValue = -1;
             }
 
+            // if we reached targetValue this frame
             if (targetValue == -1) {
                 this.player.currentTime = actualValue * this.player.duration;
 
+                // if the mouse is held down in place
                 if (this.dragging) {
                     this.player.changePlaybackRate(0);
                 }
@@ -83,7 +87,7 @@ export class ProgressBar {
                     this.player.softPlay();   
                 }
                 this.player.changePlaybackRate(10);
-                this.lastSpeedChangeTime += deltaT;
+                this.lastSpeedChangeTime += deltaT_Ms;
                 if (this.lastSpeedChangeTime > 0) {
                     this.player.currentTime = actualValue * this.player.duration;
                     this.lastSpeedChangeTime -= this.changeSpeedInterval;
@@ -96,12 +100,11 @@ export class ProgressBar {
         }
         
         this.progress.style.width = actualValue * 100 + "%";
-        this.actualValue = actualValue; this.targetValue = targetValue;
+        this.actualValue = actualValue;
+        this.targetValue = targetValue;
         
         if (this.onFrame) this.onFrame(actualValue * this.player.duration);
-        
-        window.requestAnimationFrame(() => this.frame());
-        
-        this.time = performance.now();
+
+        return actualValue * this.player.duration * 1000;
     }
 }
