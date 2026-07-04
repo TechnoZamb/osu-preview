@@ -1,6 +1,6 @@
-import { osuCoords2PixelsX, osuCoords2PixelsY, margins, bezierSegmentMaxLengthSqrd } from "/osu/render.js";
-import { beatmap, activeMods } from "/osu/osu.js";
-import { mod, lerp } from "/functions.js";
+import { osuCoords2PixelsX, osuCoords2PixelsY, margins, bezierSegmentMaxLengthSqrd } from "./render.js";
+import { beatmap, activeMods } from "./osu.js";
+import { mod, lerp } from "../functions.js";
 
 let factorialsLUT;      // factorials look-up table
 let bakedPaths = [];

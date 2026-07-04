@@ -1,0 +1,20 @@
+{
+  "name": "osupreview",
+  "version": "1.1.1",
+  "description": "osu! preview is a chromium extension that allows you to preview osu!standard beatmaps in your browser. It correctly plays most maps, renders 99% similarly to the osu! client, gives you a seekbar to jump to any part of the map, allows you to adjust all volumes and background dim, it has support for mods (EZ, HR, HT, DT, HD, FL), skins, and autoplay.\r Built on plain HTML, CSS and Javascript. Uses [zip.js](https://github.com/gildas-lormeau/zip.js).",
+  "main": "src/background.js",
+  "scripts": {
+    "build:chrome": "shx rm -rf dist/chrome && shx mkdir -p dist/chrome && shx cp manifest.chrome.json dist/chrome/manifest.json && shx cp -r src assets dist/chrome/",
+    "build:firefox": "shx rm -rf dist/firefox && shx mkdir -p dist/firefox && shx cp manifest.firefox.json dist/firefox/manifest.json && shx cp -r src assets dist/firefox/",
+    "zip:firefox": "npm run build:firefox && cd dist/firefox && npx bestzip ../firefox-extension.zip *",
+    "build:all": "npm run build:chrome && npm run build:firefox"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "shx": "^0.4.0"
+  },
+  "devDependencies": {
+    "bestzip": "^2.2.5"
+  }
+}

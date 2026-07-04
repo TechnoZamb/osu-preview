@@ -1,10 +1,10 @@
 @font-face {
     font-family: Torus;
-    src: url(assets/Torus-Light.otf);
+    src: url(/assets/Torus-Light.otf);
 }
 @font-face {
     font-family: 'Azeret Mono';
-    src: url(assets/AzeretMono.ttf);
+    src: url(/assets/AzeretMono.ttf);
 }
 
 .hidden {
@@ -33,7 +33,7 @@ main {
 }
 canvas {
     display: block;
-    background: url('assets/background.jpg');
+    background: url('/assets/background.jpg');
     background-size: cover;
     background-position: center;
 }

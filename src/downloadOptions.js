@@ -21,7 +21,7 @@ window.addEventListener("load", async (e) => {
     }
 });
 
-export const saveDownloadOptions = () => {
+export const saveDownloadOptions = async () => {
     const provider = document.querySelector("input[name='provider']:checked").value;
     const withVideo = document.getElementById("with-video").hasAttribute("disabled") ? false : document.getElementById("with-video").checked;
     let urlTemplate;
@@ -45,7 +45,7 @@ export const saveDownloadOptions = () => {
         urlTemplate = providerList[provider][1 - withVideo];
     }
     
-    chrome.storage.local.set({ downloadOptions: { provider, urlTemplate, withVideo } }, () => {
+    await browser.storage.local.set({ downloadOptions: { provider, urlTemplate, withVideo } }, () => {
         showToast("Saved!");
     });
 
@@ -57,14 +57,14 @@ export const saveDownloadOptions = () => {
 };
 
 export const readDownloadOptions = async () => {
-    const savedDownloadOptions = (await chrome.storage.local.get("downloadOptions")).downloadOptions;
+    const savedDownloadOptions = (await browser.storage.local.get("downloadOptions")).downloadOptions;
     if (!savedDownloadOptions) {
         const defaultOptions = {
             provider: "osu",
             urlTemplate: "https://osu.ppy.sh/beatmapsets/{id}/download?noVideo=1",
             withVideo: false
         };
-        chrome.storage.local.set({ downloadOptions: defaultOptions });
+        await browser.storage.local.set({ downloadOptions: defaultOptions });
         return defaultOptions;
     }
     else {

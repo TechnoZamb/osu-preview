@@ -1,7 +1,7 @@
-import { beatmap, skin, breaks, activeMods } from "/osu/osu.js";
-import { options } from "/popup.js";
-import { mod, clamp, lerp, range, rgb, distance, $ } from "/functions.js";
-import { strokeSlider, getFollowPosition, getSliderTicks } from "/osu/slider.js";
+import { beatmap, skin, breaks, activeMods } from "./osu.js";
+import { options } from "../popup.js";
+import { mod, clamp, lerp, range, rgb, distance, $ } from "../functions.js";
+import { strokeSlider, getFollowPosition, getSliderTicks } from "./slider.js";
 
 let canvasSize = [];
 const minMargin = 20;

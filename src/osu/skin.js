@@ -1,4 +1,4 @@
-import { rgb, extractFile } from "/functions.js";
+import { rgb, extractFile } from "../functions.js";
 const { BlobWriter, TextWriter } = zip;
 
 

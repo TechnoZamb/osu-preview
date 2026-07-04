@@ -1,5 +1,5 @@
-import { getPlaySpeed, stopQueuedHitsounds } from "/osu/osu.js";
-import { clamp } from "/functions.js";
+import { getPlaySpeed, stopQueuedHitsounds } from "./osu/osu.js";
+import { clamp } from "./functions.js";
 
 export class ProgressBar {
     easingFactor = 0.2; offset = 0.001;

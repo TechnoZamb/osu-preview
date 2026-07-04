@@ -1,4 +1,4 @@
-import { clamp } from "/functions.js";
+import { clamp } from "../functions.js";
 
 export class HitObject {
     constructor(obj, index) {

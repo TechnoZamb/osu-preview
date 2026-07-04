@@ -139,10 +139,6 @@ self.addEventListener("message", function(e) {
             value = e.data[1];
             break;
         }
-        case "setValue": {
-            value = null;
-            break;
-        }
         case "error": {
             showSpinner = false;
             break;

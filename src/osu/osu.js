@@ -1,11 +1,11 @@
-import { options, musicPlayer, isDebug } from "/popup.js";
-import { HitObject } from "/osu/HitObject.js";
-import { parseSkin, loadHitsounds, loadSkin, asyncLoadImage } from "/osu/skin.js";
-import { getFollowPosition, getSliderTicks } from "/osu/slider.js";
-import * as render from "/osu/render.js";
-import { MusicPlayer } from "/player.js";
-import { volumes } from "/volumes.js";
-import { clamp, distance, extractFile, $ } from "/functions.js";
+import { options, musicPlayer, isDebug } from "../popup.js";
+import { HitObject } from "./HitObject.js";
+import { parseSkin, loadHitsounds, loadSkin, asyncLoadImage } from "./skin.js";
+import { getFollowPosition, getSliderTicks } from "./slider.js";
+import * as render from "./render.js";
+import { MusicPlayer } from "../player.js";
+import { volumes } from "../volumes.js";
+import { clamp, distance, extractFile, $ } from "../functions.js";
 const { BlobWriter, TextWriter } = zip;
 
 

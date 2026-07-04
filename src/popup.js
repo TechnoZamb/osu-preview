@@ -1,11 +1,12 @@
-import * as osu from "/osu/osu.js";
+import * as osu from "./osu/osu.js";
 import * as render from "./osu/render.js";
 import { ProgressBar } from "./progress.js";
-import * as loadingWidget from "/loading.js";
-import { volumes, updateSliders } from "/volumes.js";
+import * as loadingWidget from "./loading.js";
+import { volumes, updateSliders } from "./volumes.js";
 import { $, sleep } from "./functions.js";
 import { saveDownloadOptions, readDownloadOptions, resetDownloadOptionsState } from './downloadOptions.js';
 
+zip.configure({ useWebWorkers: false });
 
 export let options = {
     BeatmapSkin: false,
@@ -39,7 +40,7 @@ window.addEventListener("load", async (e) => {
 
     if (!isDebug) {
         // get current tab URL
-        tab = (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/140662#osu/351189", id: 0 };
+        tab = (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/140662#osu/351189", id: 0 };
         if (!tab) throw new Error();
         let tabURL = tab.url;
 
@@ -57,7 +58,7 @@ window.addEventListener("load", async (e) => {
 
         [beatmapSetID, beatmapID] = [matches[1].toString(), matches[3]];
         // try and get downloaded map from storage; if not found, fetch it
-        const storedMap = (await chrome.storage.local.get("b-" + beatmapSetID))["b-" + beatmapSetID];
+        const storedMap = (await browser.storage.local.get("b-" + beatmapSetID))["b-" + beatmapSetID];
         if (!storedMap) {
             console.log("Beatmap not found in local storage; downloading it");
             loadingWidget.setText("downloading beatmap");
@@ -84,7 +85,7 @@ window.addEventListener("load", async (e) => {
             }
 
             // save mapset and current time
-            await chrome.storage.local.set({
+            await browser.storage.local.set({
                 ["b-" + beatmapSetID]: buffer.join(""),             // b for beatmapSet
                 ["t-" + beatmapSetID]: new Date().toISOString()     // t for time
             });
@@ -102,7 +103,7 @@ window.addEventListener("load", async (e) => {
         clearOldMaps();
 
         // try and load user skin; if not found, load empty zip (uses default skin)
-        const userSkin = (await chrome.storage.local.get("skin")).skin;
+        const userSkin = (await browser.storage.local.get("skin")).skin;
         let skinBuffer;
         if (!userSkin) {
             // bytes for empty zip
@@ -111,7 +112,7 @@ window.addEventListener("load", async (e) => {
             for (let i = 0; i < skinBuffer.length; i++) {
                 buffer[i] = String.fromCharCode(skinBuffer[i]);
             }
-            chrome.storage.local.set({ skin: buffer.join("") });
+            await browser.storage.local.set({ skin: buffer.join("") });
         }
         else {
             skinBuffer = new Uint8Array(userSkin.length);
@@ -121,7 +122,7 @@ window.addEventListener("load", async (e) => {
         }
         skinBlob = new Blob([skinBuffer.buffer]).slice(0, skinBuffer.length, "application/x-osu-skin-archive");
 
-        skinName = (await chrome.storage.local.get("skinName")).skinName ?? "Default skin";
+        skinName = (await browser.storage.local.get("skinName")).skinName ?? "Default skin";
         $("#skin-name").innerHTML = skinName;
 
     }
@@ -145,7 +146,12 @@ window.addEventListener("load", async (e) => {
     state = "ready";
     loadingWidget.hide();
 
+    // bullshit that i HAVE to do in order to not have desynced hitsounds at first
+    //await sleep(100);
     musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
+    //volumes.general[1].gain.value = 0;
+    musicPlayer.play();
+    await sleep(100);
     volumes.general[1].gain.value = volumes.general[0];
     musicPlayer.play();
 
@@ -160,7 +166,7 @@ function loop() {
     const songTime = progressBar.frame(deltaT);
     osu.adjustSpinnerSpinPlaybackRate(songTime);
     render.render(songTime);
-    
+
     // adjust time indicator
     timeIndicator.innerHTML =
         parseInt(musicPlayer.currentTime / 60) + ':' + parseInt(musicPlayer.currentTime % 60).toString().padStart(2, '0') +
@@ -202,7 +208,7 @@ const downloadMapset = async (url) => {
 
 const clearOldMaps = async () => {
     if (!isDebug) {
-        const allStorage = await chrome.storage.local.get(null);
+        const allStorage = await browser.storage.local.get(null);
 
         for (let key of Object.keys(allStorage)) {
             // if this key is a mapset
@@ -213,7 +219,7 @@ const clearOldMaps = async () => {
                 // if cached map older than 1 hour, remove
                 const maxTimeDiff = 1 * 1000 * 60 * 60;
                 if (new Date() - maxTimeDiff > new Date(cachedTime)) {
-                    chrome.storage.local.remove([key, "t-" + key.substring(2)]);
+                    await browser.storage.local.remove([key, "t-" + key.substring(2)]);
                 }
             }
         }
@@ -235,11 +241,11 @@ window.addEventListener("keydown", e => {
         case "Space": {
             if (musicPlayer.paused) {
                 musicPlayer.play();
-                expandWidget("assets/play.png");
+                expandWidget("/assets/play.png");
             }
             else {
                 musicPlayer.pause();
-                expandWidget("assets/pause.png");
+                expandWidget("/assets/pause.png");
             }
             break;
         }
@@ -303,11 +309,11 @@ $("canvas").addEventListener("click", e => {
 
     if (musicPlayer.paused) {
         musicPlayer.play();
-        expandWidget("assets/play.png");
+        expandWidget("/assets/play.png");
     }
     else {
         musicPlayer.pause();
-        expandWidget("assets/pause.png");
+        expandWidget("/assets/pause.png");
     }
 });
 
@@ -340,7 +346,7 @@ const toggleMoreTab = (e) => {
 }
 $("#more-btn").addEventListener("click", toggleMoreTab);
 $("#download-btn").addEventListener("click", e => {
-    chrome.downloads.download({
+    browser.downloads.download({
         url: URL.createObjectURL(oszBlob),
         filename: oszFilename
     })
@@ -432,14 +438,14 @@ $("#upload-skin-btn").addEventListener("input", async e => {
         for (let i = 0; i < file.size; i++) {
             buffer[i] = String.fromCharCode(uint8arr[i]);
         }
-        chrome.storage.local.set({ skin: buffer.join("") });
+        await browser.storage.local.set({ skin: buffer.join("") });
 
         let skinName = file.name;
         const lastPeriod = file.name.lastIndexOf(".");
         if (lastPeriod != -1) {
             skinName = skinName.substring(0, lastPeriod);
         }
-        chrome.storage.local.set({ skinName: skinName });
+        await browser.storage.local.set({ skinName: skinName });
         $("#skin-name").innerHTML = skinName;
 
         reloadModButtons();
@@ -450,8 +456,8 @@ $("#reset-skin-btn").addEventListener("click", async e => {
     await osu.reloadHitsounds();
     if (!musicPlayer.paused) musicPlayer.play();
 
-    chrome.storage.local.remove("skin");
-    chrome.storage.local.remove("skinName");
+    await browser.storage.local.remove("skin");
+    await browser.storage.local.remove("skinName");
     skinName = $("#skin-name").innerHTML = "Default skin";
 
     reloadModButtons();
@@ -526,9 +532,9 @@ const reloadModButtons = () => {
 
 const readOptions = async () => {
     if (!isDebug) {
-        const savedOptions = (await chrome.storage.local.get("options")).options;
+        const savedOptions = (await browser.storage.local.get("options")).options;
         if (!savedOptions) {
-            chrome.storage.local.set({ options: options });
+            await browser.storage.local.set({ options: options });
         }
         else {
             Object.keys(options).forEach(key => {
@@ -553,7 +559,7 @@ const readOptions = async () => {
 }
 
 export const saveOptions = () => {
-    if (!isDebug) chrome.storage.local.set({ options: options });
+    if (!isDebug) browser.storage.local.set({ options: options });
 }
 
 ["error", "unhandledrejection"].forEach(x => window.addEventListener(x, async (err) => {

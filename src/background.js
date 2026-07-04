@@ -1,4 +1,6 @@
-chrome.declarativeNetRequest.updateDynamicRules({
+import "./libs/webextension-polyfill.js";
+
+browser.declarativeNetRequest.updateDynamicRules({
     addRules: [{
         'id': 1001,
         'priority': 1,

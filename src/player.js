@@ -1,5 +1,5 @@
-import { clamp } from "/functions.js";
-import { volumes } from "/volumes.js";
+import { clamp } from "./functions.js";
+import { volumes } from "./volumes.js";
 
 export class MusicPlayer {
     static #initializing = false;
@@ -20,11 +20,11 @@ export class MusicPlayer {
     static async init(file, fallbackDuration) {
         MusicPlayer.#initializing = true;
         const player = new MusicPlayer();
-        
+
         if (!(file instanceof Blob)) {
             file = await fetch(file).then(r => r.blob());
         }
-        
+
         player.audioContext = new AudioContext();
         player.audioContext.suspend();
 

@@ -1,4 +1,4 @@
-import { $ } from "/functions.js";
+import { $ } from "./functions.js";
 import { resetDownloadOptionsState } from "./downloadOptions.js";
 
 const screen = $("#loading-screen");
@@ -9,7 +9,7 @@ const progress = $("#loading-progress");
 
 let shown = false;
 
-const worker = new Worker("worker.js");
+const worker = new Worker("./worker.js");
 const offscreen = canvas.transferControlToOffscreen();
 worker.postMessage(["init", offscreen], [offscreen]);
 

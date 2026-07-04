@@ -2,14 +2,15 @@
     "name": "osu! preview",
     "version": "1.1.1",
     "description": "Preview osu! beatmaps inside the browser",
-    "permissions": ["storage", "tabs", "declarativeNetRequest", "unlimitedStorage", "downloads"],
-    "host_permissions": ["https://*.ppy.sh/*"],
+    "permissions": [ "storage", "tabs", "declarativeNetRequest", "unlimitedStorage", "downloads" ],
+    "host_permissions": [ "https://*.ppy.sh/*" ],
     "background": {
-      "service_worker": "background.js"
+      "service_worker": "/src/background.js",
+      "type": "module"
     },
     "action": {
       "default_title": "osu! preview",
-      "default_popup": "popup.html"
+      "default_popup": "/src/popup.html"
     },
     "manifest_version": 3,
     "icons": {

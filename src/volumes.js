@@ -1,5 +1,5 @@
-import { options, saveOptions, state } from "/popup.js";
-import { clamp } from "/functions.js";
+import { options, saveOptions, state } from "./popup.js";
+import { clamp } from "./functions.js";
 
 const volumeControl = document.querySelector("#volume-control");
 let lastScrolls = [];
@@ -35,9 +35,9 @@ document.addEventListener("wheel", e => {
         volumes.general[0] = volumes.general[1].gain.value = clamp(0, volumes.general[0] - val, 1);
         volumeControl.querySelector("#volume-general").style.setProperty("--value", volumes.general[0]);
         volumeControl.querySelector("#volume-general > img").src =
-           (volumes.general[0] == 0 ? "assets/volume-xmark-solid.svg" :
-            volumes.general[0] >= 0.75 ? "assets/volume-high-solid.svg" :
-            volumes.general[0] >= 0.25 ? "assets/volume-medium-solid.svg" : "assets/volume-low-solid.svg");
+           (volumes.general[0] == 0 ? "/assets/volume-xmark-solid.svg" :
+            volumes.general[0] >= 0.75 ? "/assets/volume-high-solid.svg" :
+            volumes.general[0] >= 0.25 ? "/assets/volume-medium-solid.svg" : "/assets/volume-low-solid.svg");
     }
 
     if (!volumeControl.matches(":hover")) {
@@ -69,8 +69,7 @@ export const updateSliders = () => {
     volumeControl.querySelector("#volume-effects").style.setProperty("--value", volumes.effects[0]);
     volumeControl.querySelector("#volume-general").style.setProperty("--value", volumes.general[0]);
     volumeControl.querySelector("#volume-general > img").src =
-        (volumes.general[0] == 0 ? "assets/volume-xmark-solid.svg" :
-         volumes.general[0] >= 0.75 ? "assets/volume-high-solid.svg" :
-         volumes.general[0] >= 0.25 ? "assets/volume-medium-solid.svg" : "assets/volume-low-solid.svg");
-
+        (volumes.general[0] == 0 ? "/assets/volume-xmark-solid.svg" :
+         volumes.general[0] >= 0.75 ? "/assets/volume-high-solid.svg" :
+         volumes.general[0] >= 0.25 ? "/assets/volume-medium-solid.svg" : "/assets/volume-low-solid.svg");
 }
