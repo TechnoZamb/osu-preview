@@ -27,6 +27,13 @@ export const show = () => {
     worker.postMessage(["show"]);
 }
 
+export const showSpinner = () => {
+    if (!shown)
+        return;
+
+    worker.postMessage(["showSpinner"]);
+}
+
 export const hide = () => {
     if (!shown)
         return;

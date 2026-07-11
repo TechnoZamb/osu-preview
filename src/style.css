@@ -190,6 +190,13 @@ canvas {
     opacity: 1;
     pointer-events: all;
 }
+#version {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 18px;
+    color: #9f9f9f;
+}
 .top {
     height: 250px;
 }
@@ -712,4 +719,44 @@ footer {
 #toast-container > .toast.show {
     opacity: 1;
     transform: translateY(0);
+}
+
+.alert-box {
+    width: 400px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    background-color: #212121;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 6px;
+    border: 1px solid #ffd54f;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
+    font-size: 20px;
+
+    transition-property: opacity, transform, display;
+    transition-duration: 0.25s;
+    transition-behavior: allow-discrete;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    display: block;
+
+    @starting-style {
+        opacity: 0;
+        transform: translate(-50%, -80%);
+    }
+}
+.alert-box[closed] {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+    display: none;
+}
+.alert-box button {
+    display: block;
+    margin: 10px 0 0 auto;
+    min-width: 90px;
+}
+.alert-box a {
+    color: #96e6ff;
 }

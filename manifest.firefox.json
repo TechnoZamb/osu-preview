@@ -1,7 +1,8 @@
 {
     "manifest_version": 3,
     "name": "osu! preview",
-    "version": "1.1.1",
+    "version": "1.2.0",
+    "description": "Preview osu! beatmaps inside the browser",
     "permissions": [ "storage", "tabs", "declarativeNetRequest", "unlimitedStorage", "downloads" ],
     "host_permissions": [ "https://*.ppy.sh/*" ],
     "background": {

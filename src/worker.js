@@ -3,7 +3,7 @@ let triangleList;
 let gradient;
 let startTime, lastTime = 0;
 let stopLoading = false;
-let shown = false, showSpinner = true;
+let shown = false, showSpinner = false, error = false;
 let value = null;
 const chaseDuration = 2000, rotateDuration = 2000;
 const smallestArc = 0.3, stopDuration = 0.1;
@@ -77,11 +77,13 @@ self.addEventListener("message", function(e) {
                     ctx.stroke();
                 }
 
-                if (showSpinner) {
+                if (!error) {
                     ctx.fillStyle = gradient;
                     ctx.globalCompositeOperation = "destination-out";
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
 
+                if (showSpinner) {
                     const deltaStart = now - startTime;
                     let startAngle, endAngle;
                     if (value === null) {
@@ -107,8 +109,7 @@ self.addEventListener("message", function(e) {
                     ctx.stroke();
                 }
 
-
-                lastTime = performance.now();
+                lastTime = now;
                 if (!stopLoading) self.requestAnimationFrame(inner);
             })();
 
@@ -130,9 +131,14 @@ self.addEventListener("message", function(e) {
             }
             break;
         }
+        case "showSpinner": {
+            showSpinner = true;
+            break;
+        }
         case "hide": {
             stopLoading = true;
             shown = false;
+            showSpinner = false;
             break;
         }
         case "setValue": {
@@ -141,6 +147,7 @@ self.addEventListener("message", function(e) {
         }
         case "error": {
             showSpinner = false;
+            error = true;
             break;
         }
     }

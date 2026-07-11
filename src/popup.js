@@ -5,6 +5,7 @@ import * as loadingWidget from "./loading.js";
 import { volumes, updateSliders } from "./volumes.js";
 import { $, sleep } from "./functions.js";
 import { saveDownloadOptions, readDownloadOptions, resetDownloadOptionsState } from './downloadOptions.js';
+import { checkPendingNotifications } from "./notifications.js";
 
 zip.configure({ useWebWorkers: false });
 
@@ -34,9 +35,15 @@ export const isDebug = !(typeof chrome !== 'undefined' && chrome && chrome.tabs 
 
 
 window.addEventListener("load", async (e) => {
-    // begin loading process
-    loadingWidget.setText("loading assets");
+    $("#version").textContent = "v" + chrome.runtime.getManifest().version;
     loadingWidget.show();
+    
+    // hold here until notifications are cleared, just like native alert()
+    await checkPendingNotifications();
+    
+    // begin loading process
+    loadingWidget.showSpinner();
+    loadingWidget.setText("loading assets");
 
     if (!isDebug) {
         // get current tab URL
