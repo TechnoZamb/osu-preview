@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script type="module" src="/src/libs/zip.js"></script>
+    <script src="/src/libs/zip.js" type="module"></script>
     <script src="/src/popup.js" type="module" defer></script>
     <link rel="stylesheet" href="/src/style.css"></link>
 </head>
@@ -60,10 +60,8 @@
             <div class="bottom">
                 <div class="left">
                     <p>Current skin: <a id="skin-name"></a></p>
-                    <label id="upload-skin-btn" class="btn-big blue">
-                        <input type="file" class="hidden"></input>
-                        Upload skin
-                    </label>
+                    <button id="upload-skin-btn" class="btn-big blue">Upload skin</button>
+                    <input type="file" id="upload-skin-input" style="display: none;">
                     <button id="reset-skin-btn" class="btn-big red">Reset skin</button>
                     <button id="download-options-btn" class="btn-big blue download-options-btn">Download options</button>
                 </div>

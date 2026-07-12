@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="/src/libs/zip.js" type="module"></script>
+    <script src="/src/firefox-file.js" type="module" defer></script>
+    <link rel="stylesheet" href="/src/style.css"></link>
+    <style>
+        body {
+            align-items: center;
+            justify-content: center;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        span {
+            margin-top: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        span:hover {
+            text-decoration: underline;
+        }
+        .disabled {
+            background: linear-gradient(to top, #545454, #979797);
+            cursor: not-allowed;
+        }
+        .disabled input {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <label id="upload-skin-btn" class="btn-big blue">
+        <input id="upload-skin-input" type="file" class="hidden"></input>
+        Upload skin
+    </label>
+    <span>Why this window?</span>
+</body>
+</html>

@@ -11,10 +11,6 @@ export const distance = (p1, p2) => {
     if (!(p2 instanceof Array)) p2 = [p2.x, p2.y];
     return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
 }
-export function urlJoin(...args) {
-    const parts = Array.from(Array.isArray(args[0]) ? args[0] : args);
-    return normalize(parts);
-}
 export const $ = x => document.querySelector(x);
 export const extractFile = async (blob) => {
     const zipReader = new ZipReader(new BlobReader(blob));
@@ -23,62 +19,24 @@ export const extractFile = async (blob) => {
     return entries;
 }
 
-
-// https://github.com/jfromaniello/url-join/blob/main/lib/url-join.js
-function normalize(strArray) {
-    const resultArray = [];
-    if (strArray.length === 0) { return ''; }
-
-    if (typeof strArray[0] !== 'string') {
-        throw new TypeError('Url must be a string. Received ' + strArray[0]);
-    }
-
-    // If the first part is a plain protocol, we combine it with the next part.
-    if (strArray[0].match(/^[^/:]+:\/*$/) && strArray.length > 1) {
-        strArray[0] = strArray.shift() + strArray[0];
-    }
-
-    // There must be two or three slashes in the file protocol, two slashes in anything else.
-    if (strArray[0].match(/^file:\/\/\//)) {
-        strArray[0] = strArray[0].replace(/^([^/:]+):\/*/, '$1:///');
-    } else {
-        strArray[0] = strArray[0].replace(/^([^/:]+):\/*/, '$1://');
-    }
-
-    for (let i = 0; i < strArray.length; i++) {
-        let component = strArray[i];
-
-        if (typeof component !== 'string') {
-            throw new TypeError('Url must be a string. Received ' + component);
+export async function saveSkin(file) {
+    try {
+        const uint8arr = new Uint8Array(await file.arrayBuffer());
+        const buffer = new Array(file.size);
+        for (let i = 0; i < file.size; i++) {
+            buffer[i] = String.fromCharCode(uint8arr[i]);
         }
+        await browser.storage.local.set({ skin: buffer.join("") });
 
-        if (component === '') { continue; }
-
-        if (i > 0) {
-            // Removing the starting slashes for each component but the first.
-            component = component.replace(/^[\/]+/, '');
+        let skinName = file.name;
+        const lastPeriod = file.name.lastIndexOf(".");
+        if (lastPeriod != -1) {
+            skinName = skinName.substring(0, lastPeriod);
         }
-        if (i < strArray.length - 1) {
-            // Removing the ending slashes for each component but the last.
-            component = component.replace(/[\/]+$/, '');
-        } else {
-            // For the last component we will combine multiple slashes to a single one.
-            component = component.replace(/[\/]+$/, '/');
-        }
-
-        resultArray.push(component);
-
+        await browser.storage.local.set({ skinName: skinName });
+        return true;
+    } catch (error) {
+        console.error("Error saving skin:", error);
+        return false;
     }
-
-    let str = resultArray.join('/');
-    // Each input component is now separated by a single slash except the possible first plain protocol part.
-
-    // remove trailing slash before parameters or hash
-    str = str.replace(/\/(\?|&|#[^!])/g, '$1');
-
-    // replace ? in parameters with &
-    const parts = str.split('?');
-    str = parts.shift() + (parts.length > 0 ? '?' : '') + parts.join('&');
-
-    return str;
 }

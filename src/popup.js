@@ -3,7 +3,7 @@ import * as render from "./osu/render.js";
 import { ProgressBar } from "./progress.js";
 import * as loadingWidget from "./loading.js";
 import { volumes, updateSliders } from "./volumes.js";
-import { $, sleep } from "./functions.js";
+import { $, sleep, saveSkin } from "./functions.js";
 import { saveDownloadOptions, readDownloadOptions, resetDownloadOptionsState } from './downloadOptions.js';
 import { checkPendingNotifications } from "./notifications.js";
 
@@ -432,29 +432,24 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
     val ? e.target.setAttribute("toggled", "") : e.target.removeAttribute("toggled");
     saveOptions();
 }));
-$("#upload-skin-btn").addEventListener("input", async e => {
+$("#upload-skin-btn").addEventListener("click", e => {
+    if (browser.runtime.getURL("").startsWith("moz-extension://")) {
+        browser.windows.create({ url: "/src/firefox-file.html", type: "popup", width: 500, height: 300 });
+    }
+    else {
+        $("#upload-skin-input").click();
+    }
+});
+$("#upload-skin-input").addEventListener("input", async e => {
     if (e.target.files.length) {
         const file = e.target.files[0];
         await osu.reloadSkin(file);
         await osu.reloadHitsounds();
         if (!musicPlayer.paused) musicPlayer.play();
 
-        // save skin to storage
-        const uint8arr = new Uint8Array(await file.arrayBuffer());
-        const buffer = new Array(file.size);
-        for (let i = 0; i < file.size; i++) {
-            buffer[i] = String.fromCharCode(uint8arr[i]);
-        }
-        await browser.storage.local.set({ skin: buffer.join("") });
+        await saveSkin(file);
 
-        let skinName = file.name;
-        const lastPeriod = file.name.lastIndexOf(".");
-        if (lastPeriod != -1) {
-            skinName = skinName.substring(0, lastPeriod);
-        }
-        await browser.storage.local.set({ skinName: skinName });
-        $("#skin-name").innerHTML = skinName;
-
+        $("#skin-name").innerHTML = file.name;
         reloadModButtons();
     }
 });

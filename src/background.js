@@ -19,7 +19,7 @@ browser.declarativeNetRequest.updateDynamicRules({
 
 browser.runtime.onInstalled.addListener(async (details) => {
     if (details.reason === "update") {
-        if (compareVersions(details.previousVersion, "1.2.0") < 0 || true)
+        if (compareVersions(details.previousVersion, "1.2.0") < 0)
             await browser.storage.local.set({ pendingFirefoxNotice: true });
     }
 });
