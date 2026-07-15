@@ -6,8 +6,9 @@
   "scripts": {
     "build:chrome": "shx rm -rf dist/chrome && shx mkdir -p dist/chrome && shx cp manifest.chrome.json dist/chrome/manifest.json && shx cp -r src assets dist/chrome/",
     "build:firefox": "shx rm -rf dist/firefox && shx mkdir -p dist/firefox && shx cp manifest.firefox.json dist/firefox/manifest.json && shx cp -r src assets dist/firefox/",
-    "zip:firefox": "npm run build:firefox && cd dist/firefox && npx bestzip ../firefox-extension.zip *",
-    "build:all": "npm run build:chrome && npm run zip:firefox"
+    "zip:firefox": "npm run build:firefox && cd dist/firefox && npx bestzip ../firefox.zip *",
+    "build:all": "npm run build:chrome && npm run zip:firefox",
+    "clean": "shx rm -rf dist"
   },
   "author": "",
   "license": "ISC",

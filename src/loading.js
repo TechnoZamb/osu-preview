@@ -1,4 +1,4 @@
-import { $ } from "./functions.js";
+import { $, showToast } from "./functions.js";
 import { resetDownloadOptionsState } from "./downloadOptions.js";
 
 const screen = $("#loading-screen");
@@ -85,7 +85,7 @@ export const error = (errText, showReportBtn) => {
         $("#loading-report-btn").append($("#report-btn > div") ?? "");
         $("#loading-text").onclick = function() {
             navigator.clipboard.writeText(this.innerHTML);
-            alert("Error copied to the clipboard");
+            showToast("Error copied to the clipboard");
         };
         $("#loading-text").classList.add("clickable");
     }

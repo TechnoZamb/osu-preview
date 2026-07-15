@@ -1,4 +1,5 @@
 import { isDebug } from "./popup.js";
+import { showToast } from "./functions.js";
 
 const providerList = {
     osu: ["https://osu.ppy.sh/beatmapsets/{id}/download", "https://osu.ppy.sh/beatmapsets/{id}/download?noVideo=1"],
@@ -46,7 +47,7 @@ export const saveDownloadOptions = async () => {
     }
     
     await browser.storage.local.set({ downloadOptions: { provider, urlTemplate, withVideo } }, () => {
-        showToast("Saved!");
+        showToast("Saved! Reopen the extension to apply changes.");
     });
 
     savedProvider = provider;
@@ -87,21 +88,3 @@ export const resetDownloadOptionsState = () => {
         document.getElementById("with-video").removeAttribute("disabled");
     }
 };
-
-function showToast(message, duration = 3000) {
-    const toastContainer = document.getElementById("toast-container");
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.textContent = message;
-
-    toastContainer.appendChild(toast);
-    void toast.offsetHeight;
-    toast.classList.add("show");
-
-    const hide = () => {
-        toast.classList.remove("show");
-        toast.addEventListener("transitionend", () => toast.remove(), { once: true });
-    };
-
-    setTimeout(hide, duration);
-}

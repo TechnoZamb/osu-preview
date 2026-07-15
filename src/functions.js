@@ -40,3 +40,40 @@ export async function saveSkin(file) {
         return false;
     }
 }
+
+export async function alert(message) {
+    const alertBox = document.createElement("div");
+    alertBox.classList.add("alert-box");
+    alertBox.innerHTML = message;
+
+    const closeButton = document.createElement("button");
+    let closeCallback;
+    closeButton.classList.add("btn-big", "blue");
+    closeButton.textContent = "Ok";
+    closeButton.addEventListener("click", () => {
+        alertBox.setAttribute("closed", "");
+        if (closeCallback) closeCallback();
+    });
+
+    alertBox.appendChild(closeButton);
+    document.body.appendChild(alertBox);
+    await new Promise(resolve => closeCallback = resolve);
+}
+
+export function showToast(message, duration = 3000) {
+    const toastContainer = document.getElementById("toast-container");
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+    void toast.offsetHeight;
+    toast.classList.add("show");
+
+    const hide = () => {
+        toast.classList.remove("show");
+        toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+    };
+
+    setTimeout(hide, duration);
+}

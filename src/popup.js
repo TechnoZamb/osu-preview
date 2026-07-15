@@ -3,7 +3,7 @@ import * as render from "./osu/render.js";
 import { ProgressBar } from "./progress.js";
 import * as loadingWidget from "./loading.js";
 import { volumes, updateSliders } from "./volumes.js";
-import { $, sleep, saveSkin } from "./functions.js";
+import { $, sleep, saveSkin, showToast } from "./functions.js";
 import { saveDownloadOptions, readDownloadOptions, resetDownloadOptionsState } from './downloadOptions.js';
 import { checkPendingNotifications } from "./notifications.js";
 
@@ -149,20 +149,20 @@ window.addEventListener("load", async (e) => {
 
     reloadModButtons();
 
+    loop();
+    musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
+
     // finished loading
     state = "ready";
     loadingWidget.hide();
 
     // bullshit that i HAVE to do in order to not have desynced hitsounds at first
-    //await sleep(100);
-    musicPlayer.currentTime = parseInt(osu.beatmap.General.PreviewTime) / 1000;
-    //volumes.general[1].gain.value = 0;
+    await sleep(100);
+    volumes.general[1].gain.value = 0;
     musicPlayer.play();
     await sleep(100);
     volumes.general[1].gain.value = volumes.general[0];
     musicPlayer.play();
-
-    loop();
 });
 
 let lastTime = performance.now();
@@ -191,7 +191,7 @@ const downloadMapset = async (url) => {
     xmlHTTP.responseType = "arraybuffer";
     xmlHTTP.onload = function(e) {
         if (e.target.status == 401) {
-            result = "you need to be logged in to allow this extension to download beatmaps.";
+            result = "you need to be logged in to download from the official osu! website. log in or change provider from the download options.";
         }
         else if (e.target.status == 200) {
             result = new Blob([this.response]).slice(0, this.response.byteLength, "application/x-osu-beatmap-archive");
@@ -324,12 +324,12 @@ $("canvas").addEventListener("click", e => {
     }
 });
 
-const showReportPanel = (e) => {
+const toggleShowReportPanel = (e) => {
     if (e.target != e.currentTarget) return;
     e.currentTarget.querySelector(".report-panel").toggleAttribute("visible");
 };  
-$("#report-btn").addEventListener("click", showReportPanel);
-$("#loading-report-btn").addEventListener("click", showReportPanel);
+$("#report-btn").addEventListener("click", toggleShowReportPanel);
+$("#loading-report-btn").addEventListener("click", toggleShowReportPanel);
 window.addEventListener("mousedown", e => {
     if (!e.target.closest(".report-btn")) $(".report-panel").removeAttribute("visible")
 });
@@ -466,7 +466,8 @@ $("#reset-skin-btn").addEventListener("click", async e => {
 });
 $("#report-email-btn").addEventListener("click", e => {
     navigator.clipboard.writeText('technozamb19@gmail.com');
-    alert('Author\'s email copied to the clipboard');
+    showToast('Author\'s email copied to the clipboard');
+    document.querySelector(".report-panel").removeAttribute("visible");
 });
 $("#download-options-btn").addEventListener("click", e => {
     resetDownloadOptionsState();
