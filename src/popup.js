@@ -32,6 +32,7 @@ let skinBlob, skinName;
 let tab;
 
 export const isDebug = !(typeof chrome !== 'undefined' && chrome && chrome.tabs && chrome.storage);
+export const isFirefox = typeof browser !== 'undefined' && browser && browser?.runtime?.getURL?.("").startsWith("moz-extension://");
 
 
 window.addEventListener("load", async (e) => {
@@ -437,7 +438,7 @@ document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", 
     saveOptions();
 }));
 $("#upload-skin-btn").addEventListener("click", e => {
-    if (browser.runtime.getURL("").startsWith("moz-extension://")) {
+    if (isFirefox) {
         browser.windows.create({ url: "/src/firefox-file.html", type: "popup", width: 500, height: 300 });
     }
     else {

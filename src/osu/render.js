@@ -1,5 +1,5 @@
 import { beatmap, skin, breaks, activeMods } from "./osu.js";
-import { options } from "../popup.js";
+import { options, isFirefox } from "../popup.js";
 import { mod, clamp, lerp, range, rgb, distance, $ } from "../functions.js";
 import { strokeSlider, getFollowPosition, getSliderTicks } from "./slider.js";
 
@@ -212,10 +212,20 @@ export function render(time) {
 
             bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
             bufferCtx.globalCompositeOperation = "source-over";
-            for (let divs = sliderGradientDivisions, i = divs; i > 0; i--) {
-                bufferCtx.lineWidth = diameter * i / divs;
-                bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], i / divs)).join(",")})`;
+
+            // in firefox, it lags very easily, so the gradient colors are basically always down, so let's just draw 1 color and call it a day
+            // todo: actually optimize for firefox
+            if (isFirefox) {
+                bufferCtx.lineWidth = diameter;
+                bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], 0.7)).join(",")})`;
                 bufferCtx.stroke();
+            }
+            else {   
+                for (let divs = sliderGradientDivisions, i = divs; i > 0; i--) {
+                    bufferCtx.lineWidth = diameter * i / divs;
+                    bufferCtx.strokeStyle = `rgb(${inner.map((x, j) => lerp(x, outer[j], i / divs)).join(",")})`;
+                    bufferCtx.stroke();
+                }
             }
 
             ctx.globalAlpha *= 0.7;
