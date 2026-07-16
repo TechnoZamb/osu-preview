@@ -73,6 +73,13 @@ export class MusicPlayer {
         this.startTime = this.audioContext.currentTime;
         this.pauseTime = clamp(0, offset, this.duration);
 
+        this.source.onended = () => {
+            if (this.isPlaying && this.currentTime >= this.duration) {
+                this.pause();
+                this.pauseTime = this.duration;
+            }
+        };
+
         this.source.start(0, this.pauseTime);
         this.isPlaying = true;
     }
@@ -91,7 +98,11 @@ export class MusicPlayer {
         if (this.onPause) this.onPause();
 
         if (this.source) {
-            try { this.source.stop(0); this.source.disconnect(); } catch (e) { }
+            try {
+                this.source.onended = null;
+                this.source.stop(0);
+                this.source.disconnect();
+            } catch (e) { }
             this.source = null;
         }
         this.isPlaying = false;
@@ -127,7 +138,7 @@ export class MusicPlayer {
         if (!this.isPlaying) {
             return this.pauseTime;
         }
-        return (this.audioContext.currentTime - this.startTime) * this.playbackRate + this.pauseTime;
+        return Math.min((this.audioContext.currentTime - this.startTime) * this.playbackRate + this.pauseTime, this.duration);
     }
 
     set currentTime(value) {

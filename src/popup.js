@@ -196,13 +196,17 @@ const downloadMapset = async (url) => {
         else if (e.target.status == 200) {
             result = new Blob([this.response]).slice(0, this.response.byteLength, "application/x-osu-beatmap-archive");
         }
+        else if (e.target.status == 404) {
+            result = "beatmap not found. try changing download provider.";
+        }
         else {
             result = "an error occured.";
         }
         callback();
     };
     xmlHTTP.onprogress = function(pr) {
-        loadingWidget.setValue(pr.loaded / pr.total);
+        if (pr.total != 0)
+            loadingWidget.setValue(pr.loaded / pr.total);
     };
     xmlHTTP.onerror = function(e) {
         result = "an error occured.";
