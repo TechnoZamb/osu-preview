@@ -182,15 +182,21 @@ export async function loadSkin(skinFiles, beatmapFiles, beatmapObj, useBeatmapSk
         isLongerCursorTrail = true;
     }
 
+    // cursortrail is always resized to a perfect square, adjusting the height to the width
+    let cursorTrail = imgs.find(x => x.baseName == "cursortrail").img;
+    if (cursorTrail) {
+        cursorTrail.height = cursorTrail.width;
+    }
+
     // slider balls and follow points
     const followPoints = await loadEnumerables("followpoint-");
     const sliderbs = await loadEnumerables("sliderb");
-    if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
+    /*if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
         imgs.push(
             { files: defaultSkinFiles, name: "sliderb-nd", baseName: "sliderb-nd", ext: ".png", stage: 1, isHD: false, img: await asyncLoadImage(defaultSkinFiles, "sliderb-nd.png") },
             { files: defaultSkinFiles, name: "sliderb-spec", baseName: "sliderb-spec", ext: ".png", stage: 1, isHD: false, img: await asyncLoadImage(defaultSkinFiles, "sliderb-spec.png") }
         );
-    }
+    }*/
 
     //#region slider start end circles
     for (let x of ["sliderstartcircle", "sliderendcircle"]) {
@@ -242,10 +248,10 @@ export async function loadSkin(skinFiles, beatmapFiles, beatmapObj, useBeatmapSk
         }
     }
 
-    if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
+    /*if (sliderbs[0].stage == 3 || sliderbs[0].stage == 4) {
         result.isDefaultSliderBall = true;
         result["sliderb-nd"] = tintImage(result["sliderb-nd"], [0, 0, 0]);
-    }
+    }*/
 
     for (let i = 0; i < sliderbs.length; i++) {
         if (sliderbs[i].isHD) {

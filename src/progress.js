@@ -19,7 +19,7 @@ export class ProgressBar {
 
         this.progressBar.addEventListener("mousedown", e => {
             e.preventDefault();
-            this.targetValue = e.offsetX / this.progressBar.clientWidth;
+            this.targetValue = clamp(0, (e.clientX - this.progressBar.getBoundingClientRect().left) / this.progressBar.clientWidth, 1);
             this.dragging = true;
             this.progressBar.setAttribute("hover", "hover");
             stopQueuedHitsounds();

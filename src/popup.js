@@ -5,7 +5,6 @@ import * as loadingWidget from "./loading.js";
 import { volumes, updateSliders } from "./volumes.js";
 import { $, sleep, saveSkin, showToast } from "./functions.js";
 import { saveDownloadOptions, readDownloadOptions, resetDownloadOptionsState } from './downloadOptions.js';
-import { checkPendingNotifications } from "./notifications.js";
 
 zip.configure({ useWebWorkers: false });
 
@@ -36,17 +35,21 @@ export const isFirefox = typeof browser !== 'undefined' && browser && browser?.r
 
 
 window.addEventListener("load", async (e) => {
-    $("#version").textContent = "v" + chrome.runtime.getManifest().version;
     loadingWidget.show();
     
     // hold here until notifications are cleared, just like native alert()
-    await checkPendingNotifications();
-    
+    if (!isDebug) {
+        let notifs = await import("./notifications.js");
+        await notifs.checkPendingNotifications();
+    }
+
     // begin loading process
     loadingWidget.showSpinner();
     loadingWidget.setText("loading assets");
 
     if (!isDebug) {
+        $("#version").textContent = "v" + chrome.runtime.getManifest().version;
+
         // get current tab URL
         tab = (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0] || { url: "https://osu.ppy.sh/beatmapsets/140662#osu/351189", id: 0 };
         if (!tab) throw new Error();
@@ -130,7 +133,7 @@ window.addEventListener("load", async (e) => {
         }
         skinBlob = new Blob([skinBuffer.buffer]).slice(0, skinBuffer.length, "application/x-osu-skin-archive");
 
-        skinName = (await browser.storage.local.get("skinName")).skinName ?? "Default skin";
+        skinName = (await browser.storage.local.get("skinName")).skinName ?? "osu!lazer argon pro (2022)";
         $("#skin-name").innerHTML = skinName;
 
     }
@@ -465,7 +468,7 @@ $("#reset-skin-btn").addEventListener("click", async e => {
 
     await browser.storage.local.remove("skin");
     await browser.storage.local.remove("skinName");
-    skinName = $("#skin-name").innerHTML = "Default skin";
+    skinName = $("#skin-name").innerHTML = "osu!lazer argon pro (2022)";
 
     reloadModButtons();
 });

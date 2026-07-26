@@ -69,12 +69,13 @@ export async function reloadSkin(skinBlob) {
         return;
     }
 
+    const prevCursorTrailWidth = skin?.cursortrail?.width ?? 0;
     if (skinBlob) {
         skinFiles = (await extractFile(skinBlob)).reduce((prev, curr) => ({ ...prev, [curr.filename]: curr }), {});
     }
     skin = await loadSkin(skinFiles, mapsetFiles, beatmap, options.BeatmapSkin);
 
-    if (skin.isLongerCursorTrail && !precalculatedTrailPoints) {
+    if (skin.isLongerCursorTrail && (!precalculatedTrailPoints || skin.cursortrail?.width != prevCursorTrailWidth)) {
         render.precalculateTrailPoints();
         precalculatedTrailPoints = true;
     }

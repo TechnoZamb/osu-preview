@@ -81,7 +81,6 @@ export class MusicPlayer {
         };
 
         this.source.start(0, this.pauseTime);
-        this.isPlaying = true;
     }
 
     play() {
@@ -90,6 +89,7 @@ export class MusicPlayer {
         if (this.onPlay) this.onPlay();
 
         this.#startSource(this.pauseTime);
+        this.isPlaying = true;
         this.audioContext.resume();
     }
 

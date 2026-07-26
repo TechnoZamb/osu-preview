@@ -18,8 +18,9 @@ export let fieldSize = [], margins, bgSize;
 export let osuCoords2PixelsX, osuCoords2PixelsY;
 let prevTime = -1, framesN = 0, avgFPS, refreshRate = [];
 let sliderGradientDivisions = 20;
-const trailInterval = 16, longTrailStepLength = 3;
-const precomputedTrailPoints = [];
+const trailIntervalMs = 16; // time between each short trail point, in milliseconds
+let longTrailStepLength;
+let precomputedTrailPoints = [];
 let flashlight;
 
 export async function init() {
@@ -66,9 +67,12 @@ export async function init() {
 }
 
 export const precalculateTrailPoints = () => {
+    precomputedTrailPoints = [];
+    longTrailStepLength = skin.cursortrail.width / 4;
+
     let prevTrailPoint;
 
-    for (let time2 = -trailInterval * 34; time2 < beatmap.HitObjects.at(-1).endTime; time2 += trailInterval) {
+    for (let time2 = -trailIntervalMs * 34; time2 < beatmap.HitObjects.at(-1).endTime; time2 += trailIntervalMs) {
         let [x, y] = getTrailPoint(time2);
 
         if (x == null) {
@@ -637,61 +641,26 @@ export function render(time) {
     if (options.ShowCursor) {
         const trailPoints = [];
 
-        for (let time2 = parseInt(time / trailInterval) * trailInterval - (skin.isLongerCursorTrail ? trailInterval * 32 : trailInterval * 10); time2 < time + trailInterval; time2 += trailInterval) {
+        const speedMultiplier = activeMods.has("dt") ? 1.5 : activeMods.has("ht") ? 0.75 : 1;
+        const adjustedTrailIntervalMs = skin.isLongerCursorTrail ? trailIntervalMs : trailIntervalMs * speedMultiplier;
+        const latestTrailPointTime = parseInt(time / adjustedTrailIntervalMs) * adjustedTrailIntervalMs;
+        const trailDuration = (skin.isLongerCursorTrail ? 512 : 160) * speedMultiplier;
+    
+        for (let time2 = latestTrailPointTime - trailDuration; time2 < time + adjustedTrailIntervalMs; time2 += adjustedTrailIntervalMs) {
             time2 = Math.min(time2, time);
-            let [x, y] = getTrailPoint(time2);
 
+            let [x, y] = getTrailPoint(time2);
             if (x == null)
                 continue;
 
+            // for longer cursor trail, we just store the trail points, draw them later
             if (skin.isLongerCursorTrail) {
                 trailPoints.push([x, y, time2]);
-
-                if (time2 >= time) {
-                    if (trailPoints.length > 0) {
-                        const sprite = skin.cursortrail;
-                        const size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height * 1.6];
-
-                        let leftOverDist = precomputedTrailPoints.find(x => x[0] == parseInt(trailPoints[0][2] / trailInterval) * trailInterval)?.[1] ?? 0;
-                        for (let i = 1; i < trailPoints.length; i++) {
-                            const dist = distance(trailPoints[i], trailPoints[i - 1]);
-                            let step;
-                            for (step = leftOverDist; step < dist; step += longTrailStepLength) {
-                                ctx.globalAlpha = clamp(0, ((i - 1) * trailInterval + (step / dist) * trailInterval) / 350, 1);
-                                ctx.drawImage(sprite,
-                                    osuCoords2PixelsX(trailPoints[i - 1][0] + (trailPoints[i][0] - trailPoints[i - 1][0]) * (step / dist)) + margins[0] - size[0] / 2,
-                                    osuCoords2PixelsY(trailPoints[i - 1][1] + (trailPoints[i][1] - trailPoints[i - 1][1]) * (step / dist)) + margins[1] - size[1] / 2,
-                                    size[0], size[1]);
-                            }
-                            leftOverDist = step - dist;
-                        }
-                    }
-
-                    ctx.globalAlpha = 1;
-                    let sprite = skin.cursor;
-                    let size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height * 1.6];
-                    const center = parseInt(skin.ini.General.CursorCentre);
-
-                    if (parseInt(skin.ini.General.CursorRotate)) {
-                        ctx.save();
-                        ctx.translate(osuCoords2PixelsX(x) + margins[0], osuCoords2PixelsY(y) + margins[1]);
-                        ctx.rotate(time / 10000 * Math.PI * 2);
-                        ctx.drawImage(sprite, (-size[0] / 2) * center, (-size[1] / 2) * center, size[0], size[1]);
-                        ctx.restore();
-                    }
-                    else {
-                        ctx.drawImage(sprite, osuCoords2PixelsX(x) + margins[0] - size[0] / 2 * center, osuCoords2PixelsY(y) + margins[1] - size[1] / 2 * center, size[0], size[1]);
-                    }
-
-                    sprite = skin.cursormiddle;
-                    size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height * 1.6];
-                    ctx.drawImage(sprite, osuCoords2PixelsX(x) + margins[0] - size[0] / 2 * center, osuCoords2PixelsY(y) + margins[1] - size[1] / 2 * center, size[0], size[1]);
-                }
             }
             else {
                 const sprite = time2 < time ? skin.cursortrail : skin.cursor;
-                const size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height * 1.6];
-                ctx.globalAlpha = clamp(0, 1 - ((time - time2) / 160) * 0.94, 1);
+                const size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height];
+                ctx.globalAlpha = clamp(0, 1 - ((time - time2) / trailDuration) * 0.94, 1);
                 const center = parseInt(skin.ini.General.CursorCentre);
 
                 if (time2 < time ? parseInt(skin.ini.General.CursorTrailRotate) : parseInt(skin.ini.General.CursorRotate)) {
@@ -706,6 +675,46 @@ export function render(time) {
                         osuCoords2PixelsY(y) + margins[1] - size[1] / 2 * (time2 < time ? 1 : center), size[0], size[1]);
                 }
             }
+        }
+
+        if (skin.isLongerCursorTrail && trailPoints.length > 0) {
+            let sprite = skin.cursortrail;
+            let size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height];
+
+            let leftOverDist = precomputedTrailPoints.find(x => x[0] == parseInt(trailPoints[0][2] / trailIntervalMs) * trailIntervalMs)?.[1] ?? 0;
+            for (let i = 1; i < trailPoints.length; i++) {
+                const dist = distance(trailPoints[i], trailPoints[i - 1]);
+                let step;
+                for (step = leftOverDist; step < dist; step += longTrailStepLength) {
+                    ctx.globalAlpha = clamp(0, (i - 1 + step / dist) * trailIntervalMs / trailDuration, 1);
+                    ctx.drawImage(sprite,
+                        osuCoords2PixelsX(trailPoints[i - 1][0] + (trailPoints[i][0] - trailPoints[i - 1][0]) * (step / dist)) + margins[0] - size[0] / 2,
+                        osuCoords2PixelsY(trailPoints[i - 1][1] + (trailPoints[i][1] - trailPoints[i - 1][1]) * (step / dist)) + margins[1] - size[1] / 2,
+                        size[0], size[1]);
+                }
+                leftOverDist = step - dist;
+            }
+
+            let [x, y] = trailPoints.at(-1);
+            ctx.globalAlpha = 1;
+            sprite = skin.cursor;
+            size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height];
+            const center = parseInt(skin.ini.General.CursorCentre);
+
+            if (parseInt(skin.ini.General.CursorRotate)) {
+                ctx.save();
+                ctx.translate(osuCoords2PixelsX(x) + margins[0], osuCoords2PixelsY(y) + margins[1]);
+                ctx.rotate(time / 10000 * Math.PI * 2);
+                ctx.drawImage(sprite, (-size[0] / 2) * center, (-size[1] / 2) * center, size[0], size[1]);
+                ctx.restore();
+            }
+            else {
+                ctx.drawImage(sprite, osuCoords2PixelsX(x) + margins[0] - size[0] / 2 * center, osuCoords2PixelsY(y) + margins[1] - size[1] / 2 * center, size[0], size[1]);
+            }
+
+            sprite = skin.cursormiddle;
+            size = [osuCoords2PixelsX(beatmap.radius) / 64 * sprite.width * 1.6, osuCoords2PixelsX(beatmap.radius) / 64 * sprite.height * 1.6];
+            ctx.drawImage(sprite, osuCoords2PixelsX(x) + margins[0] - size[0] / 2 * center, osuCoords2PixelsY(y) + margins[1] - size[1] / 2 * center, size[0], size[1]);
         }
     }
 
