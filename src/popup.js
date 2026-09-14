@@ -1,5 +1,6 @@
 import * as osu from "./osu/osu.js";
 import * as render from "./osu/render.js";
+import { StrainGraph } from "./strainGraph.js";
 import { ProgressBar } from "./progress.js";
 import * as loadingWidget from "./loading.js";
 import { volumes, updateSliders } from "./volumes.js";
@@ -12,6 +13,7 @@ export let options = {
     BeatmapSkin: false,
     BeatmapHitsounds: false,
     ShowCursor: true,
+    ShowPP: false,
     BackgroundDim: 0.7,
     VolumeGeneral: 0.2,
     VolumeMusic: 1,
@@ -21,6 +23,7 @@ export let options = {
 const timeIndicator = $("#time-indicator");
 export let musicPlayer;
 let progressBar;
+let strainGraph;
 export let state = "loading";
 let moreTabOpen = false;
 
@@ -143,11 +146,12 @@ window.addEventListener("load", async (e) => {
         skinBlob = await fetch("skin.zip").then(r => r.blob());
     }
 
-    readOptions();
+    await readOptions();
 
     musicPlayer = await osu.initOsu(oszBlob, skinBlob, beatmapID);
     musicPlayer.onPlay = (e) => osu.queueHitsounds(musicPlayer.currentTime);
     progressBar = new ProgressBar("#progress-bar", musicPlayer);
+    strainGraph = new StrainGraph({ wrapper: $("#progress-bar-wrapper"), player: musicPlayer, text: osu.sourceBeatmapText, showPP: options.ShowPP });
 
     oszFilename = `${beatmapSetID} ${osu.beatmap.Metadata.Artist} - ${osu.beatmap.Metadata.Title}.osz`;
 
@@ -175,6 +179,7 @@ function loop() {
     const deltaT = time - lastTime;
     lastTime = time;
     const songTime = progressBar.frame(deltaT);
+    strainGraph?.update(songTime, deltaT);
     osu.adjustSpinnerSpinPlaybackRate(songTime);
     render.render(songTime);
 
@@ -413,7 +418,7 @@ $("#background-dim").addEventListener("mouseup", e => {
         bgDimTimeout = null;
     }, parseFloat(getComputedStyle($("#more-tab")).transitionDuration.split(",")[0]) * 1000);
 });
-document.querySelectorAll(".checkbox").forEach(x => x.addEventListener("click", async e => {
+document.querySelectorAll(".checkbox:not(#toggle-pp)").forEach(x => x.addEventListener("click", async e => {
     let val;
     switch (e.target.id) {
         case "check-cursor": {
@@ -520,6 +525,7 @@ const expandWidget = (src, filter) => {
 
 const toggleMod = (mod) => {
     osu.toggleMod(mod);
+    strainGraph?.setMods(osu.activeMods);
 
     for (let mod2 of ["ez", "hr", "ht", "dt", "hd", "fl"]) {
         if (osu.activeMods.has(mod2)) {
@@ -556,6 +562,8 @@ const readOptions = async () => {
         }
     }
 
+    $("#toggle-pp").setAttribute("aria-pressed", String(options.ShowPP));
+    $("#toggle-pp").toggleAttribute("toggled", options.ShowPP);
     volumes.general[0] = options.VolumeGeneral;
     volumes.music[0] = options.VolumeMusic;
     volumes.effects[0] = options.VolumeEffects;
@@ -594,3 +602,12 @@ export const saveOptions = () => {
     catch { }
     return false;
 }));
+
+const ppButton = $("#toggle-pp");
+ppButton.addEventListener("click", () => {
+    options.ShowPP = !options.ShowPP;
+    ppButton.setAttribute("aria-pressed", String(options.ShowPP));
+    ppButton.toggleAttribute("toggled", options.ShowPP);
+    strainGraph?.setShowPP(options.ShowPP);
+    saveOptions();
+});

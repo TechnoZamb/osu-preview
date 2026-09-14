@@ -10,6 +10,7 @@ const { BlobWriter, TextWriter } = zip;
 
 
 export let beatmap, skin, hitSounds;
+export let sourceBeatmapText;
 export let breaks;
 export const activeMods = new Set();
 
@@ -33,6 +34,7 @@ export async function initOsu(mapsetBlob, skinBlob, beatmapID) {
         let json = await fetch("debug.json").then(r => r.json());
         beatmapText = await Object.values(mapsetFiles).find(x => x.filename.endsWith(json.maps[json.mapIndex][1] + ".osu")).getData(new TextWriter());
     }
+    sourceBeatmapText = beatmapText;
     beatmap = parseBeatmap(beatmapText);
 
     computeMapProperties();
