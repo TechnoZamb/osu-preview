@@ -34,7 +34,7 @@ export class StrainGraph {
         this.panel = document.createElement('section');
         this.panel.id = 'strain-panel';
         this.panel.setAttribute('aria-label', 'Relative difficulty across the beatmap');
-        this.panel.innerHTML = `<div class="strain-heading"><span>STRAIN</span><span class="strain-status">Calculating…</span></div>
+        this.panel.innerHTML = `<div class="strain-heading"><span class="strain-status">STRAIN</span></div>
             <svg class="strain-svg" viewBox="0 0 800 80" preserveAspectRatio="none" aria-hidden="true">
               <defs><clipPath id="strain-played-clip"><rect width="0" height="80"/></clipPath><clipPath id="strain-active-clip"></clipPath></defs>
               <g clip-path="url(#strain-active-clip)"><path class="strain-upcoming"/><path class="strain-played" clip-path="url(#strain-played-clip)"/></g>
@@ -49,7 +49,7 @@ export class StrainGraph {
         this.hud.id = 'pp-preview';
         this.hud.hidden = !showPP;
         this.hud.innerHTML = '<strong>…</strong><span>for SS</span>';
-        wrapper.parentElement.appendChild(this.hud);
+        wrapper.parentElement.querySelector("#more-tab").before(this.hud);
         this.ppNumber = this.hud.querySelector('strong');
         const pointer = (e) => {
             const box = wrapper.getBoundingClientRect();
@@ -127,7 +127,7 @@ export class StrainGraph {
         clearTimeout(this.debounce);
         this.requestId++;
         if (this.busy) this.stopWorker();
-        this.status.textContent = 'Calculating…';
+        this.status.textContent = 'STRAIN';
         this.debounce = setTimeout(() => this.request(), 120);
     }
     stopWorker() {
@@ -193,12 +193,12 @@ export class StrainGraph {
     accept(result) {
         const modOrder = ['hd', 'dt', 'hr', 'fl', 'ez', 'ht'];
         this.result = result;
-        this.status.textContent = this.mods.length
+        this.status.textContent = 'STRAIN • ' + (this.mods.length
             ? [...this.mods]
                   .sort((a, b) => modOrder.indexOf(a) - modOrder.indexOf(b))
                   .join('')
                   .toUpperCase()
-            : 'NM';
+            : 'NM');
         this.draw();
         this.update(this.lastTime, 0, true);
         this.updateHover();
@@ -253,10 +253,15 @@ export class StrainGraph {
         const percent = this.hoverFraction * 100,
             time = this.hoverFraction * this.player.duration * 1000;
         this.hoverLine.style.left = `${percent}%`;
-        this.tooltip.style.left = `${clamp(percent, 8, 92)}%`;
+
         const pp = this.showPP && this.result?.pp;
         this.tooltip.textContent =
-            formatTime(time) + (pp ? ` · ~${Math.round(checkpointValue(pp.times, pp.values, time))} SS PP` : '');
+            formatTime(time) + (pp ? ` • ~${Math.round(checkpointValue(pp.times, pp.values, time))} SS PP` : '');
+
+        const padding = 10; // in pixels, to avoid the tooltip being too close to the edges
+        const minLeft = this.tooltip.offsetWidth * 0.5 + padding;
+        const maxLeft = (this.panel.clientWidth - this.tooltip.offsetWidth * 0.5) - padding;
+        this.tooltip.style.left = `${clamp(percent / 100 * this.panel.clientWidth, minLeft, maxLeft)}px`;
     }
     update(time, deltaMs = 16, snap = false) {
         const jumped = Math.abs(time - this.lastTime) > 750;

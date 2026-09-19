@@ -21,11 +21,12 @@ browser.runtime.onInstalled.addListener(async (details) => {
     if (details.reason === "update") {
         if (compareVersions(details.previousVersion, "1.2.0") < 0)
             await browser.storage.local.set({ pendingFirefoxNotice: true });
+        if (compareVersions(details.previousVersion, "1.3.0") < 0)
+            await browser.storage.local.set({ pendingStrainGraphNotice: true });
     }
 });
 
 function compareVersions(v1, v2) {
-    debugger
     const v1Parts = v1.split('.').map(Number);
     const v2Parts = v2.split('.').map(Number);
 
